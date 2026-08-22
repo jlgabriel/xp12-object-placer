@@ -1,0 +1,20 @@
+I
+800
+DSF2TEXT
+
+PROPERTY sim/west -71
+PROPERTY sim/east -70
+PROPERTY sim/north -33
+PROPERTY sim/south -34
+PROPERTY sim/planet earth
+PROPERTY sim/overlay 1
+PROPERTY sim/creation_agent XPOP-H0-probe
+
+OBJECT_DEF lib/airport/Common_Elements/Vehicles/Large_Fuel_Truck.obj
+OBJECT_DEF lib/airport/control_towers/small/14m_Sweden.obj
+OBJECT_DEF lib/airport/hangars/arched/16x16/rusted_1.obj
+
+OBJECT 0 -70.784600 -33.376000 0.000000
+OBJECT 0 -70.783954 -33.376000 45.000000
+OBJECT 1 -70.783308 -33.376000 0.000000
+OBJECT 2 -70.782662 -33.376000 90.000000

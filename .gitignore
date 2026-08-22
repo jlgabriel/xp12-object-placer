@@ -1,0 +1,14 @@
+node_modules/
+dist/
+out/
+build/
+coverage/
+*.tsbuildinfo
+
+# Scratch. Anything you need to keep out of the history goes here.
+# (PCT learned this late — its repo root collected suiza.json, scan-out/, catalog.json…)
+scratch/
+
+# Local machine paths, never committed
+.env
+.env.local
