@@ -180,7 +180,10 @@ function Catalog({
       <div className="toolbar">
         <input
           type="search"
-          placeholder="Search 3,800 objects — try hangar, tower, truck…"
+          // The count comes from the catalog, never from a number typed into this string. Every
+          // installation has a different one, and a placeholder that quietly lies about the size of
+          // the thing it is searching is worse than one that says nothing.
+          placeholder={`Search ${catalog.entries.length.toLocaleString()} objects — try hangar, tower, truck…`}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -200,11 +203,21 @@ function Catalog({
         <button onClick={onRescan}>Rescan</button>
       </div>
 
-      <ul className="entries">
-        {matches.slice(0, 400).map((entry) => (
-          <Entry key={entry.virtualPath} entry={entry} />
-        ))}
-      </ul>
+      {/* Header and rows share one scroll container so a scrollbar cannot knock the columns out of
+          alignment, and the header sticks rather than scrolling away just when it is needed. */}
+      <div className="listing">
+        <div className="columns">
+          <span>Object</span>
+          <span>Category</span>
+          <span>Footprint &amp; height</span>
+          <span>Notes</span>
+        </div>
+        <ul className="entries">
+          {matches.slice(0, 400).map((entry) => (
+            <Entry key={entry.virtualPath} entry={entry} />
+          ))}
+        </ul>
+      </div>
       {matches.length > 400 && (
         <p className="truncated">
           showing the first 400 of {matches.length.toLocaleString()} — narrow the search

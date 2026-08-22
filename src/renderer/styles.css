@@ -183,19 +183,40 @@ main {
   font-variant-numeric: tabular-nums;
 }
 
-.entries {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  overflow: auto;
-  flex: 1;
-}
-
+/* One grid, two users: the header and every row. Declaring the columns twice is how they drift. */
+.columns,
 .entries li {
   display: grid;
   grid-template-columns: 250px 1fr 190px 220px;
   gap: 12px;
   padding: 5px 14px;
+}
+
+.columns {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: var(--dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.listing {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.entries li {
   border-bottom: 1px solid #1b232b;
 }
 

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "xop-renderer-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview:ui"],
+      "port": 5200
+    }
+  ]
+}
