@@ -18,8 +18,25 @@ default or custom.
 
 ## Status
 
-Early. Nothing to install yet. See [`docs/DECISIONS.md`](docs/DECISIONS.md) for what has been
-settled and [`reference/`](reference/) for the file-format notes this is being built against.
+Early — no window yet, and nothing to install. What works today is the data layer, headless:
+
+```bash
+npm install
+npm run scan -- "/path/to/X-Plane 12" --geometry --out scratch/catalog.json
+```
+
+That reads every `library.txt` in the installation, resolves the virtual paths, parses the OBJ8
+files and measures them. On a real install: 23 libraries, 49 233 exports, 13 100 of them objects,
+**3 837 an actual person would want to place**, measured at ~250 objects a second.
+
+Writing the overlay works too — `src/core/dsf` turns placed objects into a DSF text that DSFTool
+compiles and X-Plane loads. Both halves have been flown; see [`probes/`](probes/).
+
+What is missing is everything in between: the map, the catalog UI, and thumbnails.
+
+See [`docs/DECISIONS.md`](docs/DECISIONS.md) for what has been settled and
+[`reference/`](reference/) for the file-format notes, which mark what was verified on disk versus
+what is only specified.
 
 ## Zero assets
 

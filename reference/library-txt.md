@@ -25,53 +25,78 @@ LIBRARY
 ⚠️ The filename case varies in the wild: stock uses `library.txt`, several third-party packs ship
 `Library.txt`. The scanner must be case-insensitive when *finding* the file.
 
-## How many objects ✅
+## What one real installation contains ✅
 
-`EXPORT` lines resolving to `.obj`, counted per stock library:
+Scanned with `npm run scan`, X-Plane 12.4.3 with a handful of third-party packs:
 
-| library | objects |
+| | |
 |---|---|
-| `1000 autogen` | 3053 |
-| `airport scenery` | 1892 |
-| `900 europe objects` | 1388 |
-| `sim objects` | 1351 |
-| `1000 roads` | 907 |
-| `900 us objects` | 705 |
-| `900 world object placeholders` | 701 |
-| `900 roads` | 217 |
-| `1000 world terrain` | 109 |
-| **total** | **10 323** |
+| libraries read | **23** |
+| exports of every asset type | **49 233** |
+| of those, `.obj` | **13 100** (26.6%) |
+| distinct `.obj` virtual paths | **6 293** |
+| with more than one variant | 1 841 (29.3%) |
+| **actually offered to a user** | **3 837** (61%) |
 
-For scale: PCT's Aerofly catalog held 911 objects. Filtering, categorizing and previewing ten
-thousand is a harder problem than the placement itself, and it is where the application will
-actually be won or lost.
+The other three quarters of the exports are `.ter` (9 818), `.for` (9 680), `.pol` (8 904), `.fac`
+(4 344), `.lin`, `.agp`, `.ags` — terrain, forests, polygons and facades, none of which XOP places.
 
-## Directive syntax ✅
+For scale: PCT's Aerofly catalog held 911 objects. Getting from 13 100 exports down to 3 837 things
+a person might actually want is the real work, and most of it is done by the libraries themselves —
+see the visibility markers below.
 
-```
-EXPORT <virtual path><TAB><TAB><path relative to this package>
-```
+## Directive inventory ✅ — counted, not assumed
 
-Example, verbatim:
+Every directive present in those 23 files, by frequency. Anything not on this list has never been
+seen and is therefore not implemented:
+
+| directive | count | shape |
+|---|---|---|
+| `EXPORT` | 19 223 | `<virtual> <physical>` |
+| `EXPORT_EXCLUDE_SEASON` | 9 980 | `<seasons> <virtual> <physical>` |
+| `EXPORT_EXCLUDE` | 5 252 | `<virtual> <physical>` |
+| `EXPORT_RATIO` | 2 458 | `<ratio> <virtual> <physical>` |
+| `EXPORT_SEASON` | 1 852 | `<seasons> <virtual> <physical>` |
+| `EXPORT_EXTEND` | 1 129 | `<virtual> <physical>` |
+| `EXPORT_BACKUP` | 1 047 | `<virtual> <physical>` |
+| `PUBLIC` | 130 | optional date argument |
+| `PRIVATE` / `DEPRECATED` / `SEMI_DEPRECATED` | 94 | bare |
+| `REGION` / `REGION_DEFINE` / `REGION_BITMAP` / `REGION_RECT` / `REGION_ALL` / `REGION_DREF` | 125 | |
+| `EXPORT_EXTEND_SEASON` | 38 | |
+| `EXPORT_RATIO_SEASON` | 2 | `<ratio> <seasons> <virtual> <physical>` |
+| `EXPORT_EXCLUDE_BACKUP` | 1 | |
+
+Example, verbatim (the separators are tabs, and there can be any number of them):
 
 ```
 EXPORT lib/airport/hangars/arched/16x16/rusted_1.obj		Common_Elements/Hangars/hangar_A16x16_02.obj
 ```
 
-The full family ❓ (only `EXPORT` and `EXPORT_SEASON` appear in the stock airport library):
+Several exports targeting the **same virtual path** are variants; X-Plane picks among them at
+random. The catalog shows them as one entry with a variant count, not as duplicates.
 
-| directive | meaning |
+## ★★ Visibility markers — the libraries curate themselves ✅
+
+`PUBLIC`, `PRIVATE`, `DEPRECATED` and `SEMI_DEPRECATED` appear on their own line and apply to
+**every export that follows**, until the next marker. They are not annotations on the next line.
+
+This is worth more than it looks. `900 us objects` carries a bare `DEPRECATED` on **line 5** and
+never returns to public, so its authors have marked that entire X-Plane 9 era library as superseded.
+Across the installation:
+
+| | objects |
 |---|---|
-| `EXPORT` | map a path, blocking lower-priority packages |
-| `EXPORT_EXTEND` | merge with lower-priority packages instead of replacing |
-| `EXPORT_BACKUP` | lowest priority; used only if nothing else defines the path |
-| `EXPORT_EXCLUDE` | block lower-priority definitions when region conditions are met |
-| `EXPORT_RATIO` | weight one variant against others |
-| `*_SEASON` | same, restricted to `spr`, `sum`, `fal`, `win` (X-Plane 12) |
-| `REGION_DEFINE` / `REGION_RECT` / `REGION_BITMAP` / `REGION_DREF` / `REGION` | restrict exports geographically or by dataref |
+| public | 3 490 |
+| deprecated | 1 235 |
+| private | 1 221 |
+| semi-deprecated | 347 |
 
-Several `EXPORT` lines targeting the **same virtual path** are variants; X-Plane picks among them at
-random. The catalog should show them as one entry with a variant count, not as duplicates.
+**39% of the catalog is hidden by the people who wrote it**, at no cost to us. That is the single
+biggest piece of curation available, and it arrived free with the format. Offer `public` and
+`semi-deprecated`; the rest is library plumbing and legacy.
+
+❓ Not verified: what visibility applies *before* the first marker. Most libraries never declare one.
+XOP assumes public, on the grounds that everything predating the markers was usable by anyone.
 
 ## The taxonomy is free ✅
 
@@ -103,3 +128,29 @@ silently, with no error and no object.
 **The virtual name lies about the physical name.** `Large_Fuel_Truck.obj` resolves to
 `Common_Elements/Vehicles/fuel_truck_small.obj`. Display names must come from the virtual path;
 the physical filename is an implementation detail of the library that owns it.
+
+**A physical path can contain spaces.** Real: `EXPORT_BACKUP lib/atc/voices/default.voc voices/default
+controller/default_Aditi.voc`. Tokenizing the line and re-joining the tail would be lossy, so the
+parser takes everything after the virtual path verbatim.
+
+**The library filename's case varies.** Stock packages ship `library.txt`; several third-party ones
+ship `Library.txt`. Match case-insensitively when *finding* it — on Windows a case-sensitive match
+would silently lose whole libraries in a way the person reporting it could never reproduce.
+
+**A pack can be a junction or a symlink.** `xOrganizer` and similar tools link packs in from
+elsewhere. Node's `readdirSync`/`statSync` follow them; `find` does not, which is how one library
+went missing from a first count.
+
+**Stock libraries contain broken lines.** Five `EXPORT`s in X-Plane 12.4.3 are missing the separator
+entirely, so the two paths run together:
+
+```
+EXPORT /lib/global8/us/feat_Building_50_40_600r50.obj buildings/B2_d5_32x19.obj   ← fine
+EXPORT /lib/global8/us/feat_Building_50_40_600r60.objbuildings/B2_e2_52x25.obj    ← broken
+```
+
+Report them, do not guess at them, and do not let five bad lines abort a scan of fifty thousand
+good ones.
+
+**A library can export files the package does not ship.** 32 objects in one third-party library
+point at files that are not there. The catalog has to survive that, and say so.

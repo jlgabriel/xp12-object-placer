@@ -56,28 +56,65 @@ Texture paths are relative to the `.obj`, and routinely climb out of its directo
 ## ⚠️ Multiple LODs per object ✅
 
 ```
-ATTR_LOD 0 500
+ATTR_LOD 0 500       ← both start at 0, so both are drawn up close
 ATTR_LOD 0 1500
 ```
 
-Stock objects carry two or more LOD ranges. Naively accumulating every `VT` counts the same
-geometry more than once. For bounding boxes it barely matters; for a rendered thumbnail it does —
-take the nearest range only.
+vs
 
-`ATTR_LOD_draped` also appears, and draped geometry (between `ATTR_draped` and `ATTR_no_draped`) is
-ground decal, not volume. It should probably be excluded from a bounding box.
+```
+ATTR_LOD 0 1000      ← alternatives; only one is drawn at a time
+ATTR_LOD 1000 6000
+```
 
-## Bounding boxes work ✅
+Both shapes are in stock objects, and they mean different things. "Take the first LOD" is wrong for
+the first shape — it would lose the main body and keep only the detail pass.
 
-`scripts/objBbox.mjs` computes these from stock objects today:
+**The rule that works for both: include every block whose `near` distance is 0.** That is exactly
+what is drawn when you stand next to the object.
+
+`ATTR_LOD_draped` also appears; it is a draw distance for draped geometry, not a geometry LOD.
+
+## ⚠️★ Draped geometry must be excluded from the footprint ✅
+
+Geometry between `ATTR_draped` and `ATTR_no_draped` is a ground decal — an apron, a taxiway marking,
+a stain — and it can be **many times wider than the object it belongs to**. **914 of 3 706** measured
+objects have some.
+
+A bounding box over every `VT` folds the decal into the building, and the footprint drawn on the map
+would be several times too large. The parser resolves the index table, walks the command stream, and
+measures only the triangles that are both non-draped and drawn at close range.
+
+Objects that are draped *and nothing else* — a pavement drain, a painted marking — are still
+perfectly placeable. Their footprint is the draped extent, so measure that instead of discarding
+them.
+
+## Bounding boxes work — and they are validated at scale ✅
+
+`src/core/obj8/parse.ts` measured **3 706 of the 3 837 placeable objects** in a real installation, at
+about 250 objects per second. Of the 131 it could not: 99 have no geometry at all (light-only
+entries in `sim objects`) and 32 point at files their package does not ship.
+
+★★ **The names are free ground truth.** Many library paths encode the object's dimensions —
+`hangars/arched/16x16/`, `shelters/white/11x15.obj`. Comparing the parsed geometry against the
+number in the name, across every object that carries one:
+
+> **163 of 163 agree within 15%.**
+
+That is a validation nobody had to write fixtures for. It came out of the data, and it covers far
+more ground than any hand-written test could.
 
 | object | width (E–W) | height | depth (N–S) | vertices |
 |---|---|---|---|---|
 | `Common_Elements/Vehicles/fuel_truck_small.obj` | 2.5 m | 2.4 m | 5.2 m | 36 995 |
-| `Euro_Airports/…/Tower_Europe_14m_Sweden.obj` | 8.8 m | **18.6 m** | 8.1 m | 8 218 |
-| `Common_Elements/Hangars/hangar_A16x16_02.obj` | **16.4 m** | 7.5 m | **16.2 m** | 2 292 |
+| `Euro_Airports/…/Tower_Europe_14m_Sweden.obj` | 8.8 m | **18.0 m** | 8.1 m | 8 218 |
+| `Common_Elements/Hangars/hangar_A16x16_02.obj` | **16.4 m** | 6.0 m | **16.1 m** | 2 292 |
 
-Two things worth keeping:
+Both the tower and the hangar read smaller here than a naive bounding box over every `VT` gives
+(18.6 m and 7.5 m tall, 16.2 m deep). That is the parser being right, not losing something: height
+now excludes the foundations below ground, and the hangar's depth excludes its draped apron.
+
+Two more things worth keeping:
 
 - The hangar exported as `…/hangars/arched/16x16/rusted_1.obj` really is 16.4 × 16.2 m. **The
   virtual path does not lie about size**, which makes it a usable search key.
