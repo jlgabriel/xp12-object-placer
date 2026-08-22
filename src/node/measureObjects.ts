@@ -7,7 +7,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { containedJoin } from './containedPath.js';
 import {
   belowGround,
   parseObj8,
@@ -40,6 +40,8 @@ export interface ObjectMeasurement {
 export type MeasureFailureReason =
   /** The library exports a path, and the file is not in the package. Common in third-party packs. */
   | 'missing-file'
+  /** The exported path would resolve outside its own package. Never read; see containedPath.ts. */
+  | 'escapes-package'
   /** Read or parsed, but there is no geometry of any kind to measure. */
   | 'no-geometry'
   /** The file exists but is not readable as OBJ8. */
@@ -107,7 +109,17 @@ function measureOne(
       continue;
     }
 
-    const file = join(packagePath, variant.relativePath);
+    const file = containedJoin(packagePath, variant.relativePath);
+    if (file === null) {
+      attempts.push({
+        virtualPath: object.virtualPath,
+        file: variant.relativePath,
+        reason: 'escapes-package',
+        message: 'the exported path points outside its own package',
+      });
+      continue;
+    }
+
     try {
       const geometry = parseObj8(readFileSync(file, 'latin1'));
 

@@ -25,6 +25,23 @@ function normalize(path: string): string {
   return path.trim().replace(/\\/g, '/').replace(/\/+$/, '');
 }
 
+/**
+ * ⚠️ A UNC entry is dropped, and that is a security decision rather than a simplification.
+ *
+ * The caller `stat`s every path this returns, synchronously, on the main thread, at startup, before
+ * the window is shown. On Windows a `stat` of `//host/share` opens an SMB connection: against a
+ * dead host it hangs the application before it can draw anything, and against a live attacker host
+ * it hands over the user's NTLM hash. This file is written by an installer, not by the user, and it
+ * is exactly the untrusted input that reaches that syscall. (Fable review P1-4.)
+ *
+ * Somebody genuinely running X-Plane from a network share is rare, and can still point XOP at it
+ * through Browse — which is explicit intent, at a moment of their choosing, rather than something
+ * a text file causes during boot.
+ */
+function isUnc(path: string): boolean {
+  return path.startsWith('//');
+}
+
 export function parseInstallList(text: string): string[] {
   const found: string[] = [];
 
@@ -34,7 +51,8 @@ export function parseInstallList(text: string): string[] {
 
     for (const piece of line.split(DRIVE_ROOT)) {
       const path = normalize(piece);
-      if (path !== '') found.push(path);
+      if (path === '' || isUnc(path)) continue;
+      found.push(path);
     }
   }
 

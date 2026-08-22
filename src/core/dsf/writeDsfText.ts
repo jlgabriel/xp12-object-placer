@@ -32,15 +32,31 @@ export function writeDsfText(input: DsfTextInput): string {
   const { tile, objects, creationAgent } = input;
 
   for (const object of objects) {
-    const actual = dsfTileOf(object.position);
-    if (tileKey(actual) !== tileKey(tile)) {
-      throw new Error(
-        `Object ${object.id} at ${object.position.lon},${object.position.lat} belongs to tile ` +
-          `${tileKey(actual)}, not ${tileKey(tile)}. Group with groupByTile() before writing.`,
-      );
+    // ⚠️ Coordinates are checked BEFORE the tile, and the order is load-bearing. dsfTileOf(NaN) is
+    // NaN, so a bad coordinate reaching the tile comparison first fails with "belongs to tile
+    // -34,NaN" — which sends whoever reads it looking at grouping instead of at the number.
+    //
+    // And toFixed does not save you: (NaN).toFixed(9) is "NaN", Infinity gives "Infinity", 1e21
+    // gives "1e+21". Any of those in an OBJECT line makes a DSF that DSFTool rejects or that loads
+    // somewhere absurd. Rotation was guarded from the start; longitude and latitude were not.
+    // (Fable review, §5.4.)
+    const { lon, lat } = object.position;
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+      throw new Error(`Object ${object.id} has a non-finite position.`);
+    }
+    if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+      throw new Error(`Object ${object.id} is not on Earth: ${lon}, ${lat}`);
     }
     if (!Number.isFinite(object.rotation)) {
       throw new Error(`Object ${object.id} has a non-finite rotation.`);
+    }
+
+    const actual = dsfTileOf(object.position);
+    if (tileKey(actual) !== tileKey(tile)) {
+      throw new Error(
+        `Object ${object.id} at ${lon},${lat} belongs to tile ` +
+          `${tileKey(actual)}, not ${tileKey(tile)}. Group with groupByTile() before writing.`,
+      );
     }
   }
 

@@ -70,6 +70,24 @@ describe('writeDsfText', () => {
     expect(rotations).toEqual(['270.000000', '0.000000', '45.000000']);
   });
 
+  it('refuses a position that is not a real coordinate', () => {
+    // toFixed does not save you: (NaN).toFixed(9) is "NaN", Infinity gives "Infinity", 1e21 gives
+    // "1e+21". Any of those in an OBJECT line makes a DSF that DSFTool rejects or that loads
+    // somewhere absurd, and the failure surfaces a long way from its cause.
+    const bad = (lon: number, lat: number): (() => string) =>
+      () =>
+        writeDsfText({
+          tile: TILE,
+          objects: [object('a', TRUCK, lon, lat, 0)],
+          creationAgent: 'XOP',
+        });
+
+    expect(bad(NaN, -33.37)).toThrow(/non-finite position/);
+    expect(bad(-70.78, Infinity)).toThrow(/non-finite position/);
+    expect(bad(-70.78, -95)).toThrow(/not on Earth/);
+    expect(bad(200, -33.37)).toThrow(/not on Earth/);
+  });
+
   it('refuses an object that belongs in another tile', () => {
     // groupByTile exists precisely so this never happens. If it does, it is a bug upstream, and a
     // silent write would produce a pack X-Plane quietly ignores.

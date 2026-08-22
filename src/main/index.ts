@@ -67,12 +67,30 @@ function createWindow(): void {
     if (/^https?:\/\//.test(url)) void shell.openExternal(url);
     return { action: 'deny' };
   });
-  win.webContents.on('will-navigate', (event, url) => {
-    const current = win.webContents.getURL();
-    if (current && new URL(url).origin === new URL(current).origin) return;
+
+  // ⚠️ Do NOT rewrite this as "allow same origin". Every file:// URL has origin "null", so in a
+  // packaged build that comparison is "null" === "null" and the guard allows navigation to any
+  // local file. Dragging a file onto the window is enough to trigger it: Chromium navigates the
+  // top-level frame to the drop, and a crafted .html then loads at a file:// origin **with this
+  // preload attached**, handing the page window.xop. (Fable review P1-2.)
+  //
+  // XOP is a single page that never legitimately navigates, so the rule is simply: block
+  // everything, except the dev server's own origin, where Vite may reload.
+  const mayNavigate = (url: string): boolean => {
+    if (!RENDERER_URL) return false; // packaged: nothing, ever
+    try {
+      return new URL(url).origin === new URL(RENDERER_URL).origin;
+    } catch {
+      return false;
+    }
+  };
+  const guardNavigation = (event: { preventDefault(): void }, url: string): void => {
+    if (mayNavigate(url)) return;
     event.preventDefault();
     if (/^https?:\/\//.test(url)) void shell.openExternal(url);
-  });
+  };
+  win.webContents.on('will-navigate', guardNavigation);
+  win.webContents.on('will-redirect', guardNavigation);
 
   // A window that comes up blank is the one report where the user has nothing else to tell us.
   win.webContents.on('did-fail-load', (_event, code, description, url) => {
@@ -98,6 +116,14 @@ void app.whenReady().then(() => {
       });
     });
   }
+
+  // XOP needs no browser permissions at all — no geolocation, camera, notifications, clipboard.
+  // Electron's defaults are not uniformly deny-all across versions, and a map UI is exactly where a
+  // dependency might ask for geolocation. Blanket denial costs nothing here. (Fable review P2-2.)
+  session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) =>
+    callback(false),
+  );
+  session.defaultSession.setPermissionCheckHandler(() => false);
 
   registerIpc();
   createWindow();

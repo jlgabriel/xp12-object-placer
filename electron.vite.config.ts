@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import react from '@vitejs/plugin-react';
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 
@@ -21,6 +22,18 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
+    build: {
+      rollupOptions: {
+        // Two entries: the main process, and the utility process that runs the catalog scan.
+        // The scan is fifteen seconds of synchronous work and must not happen on the thread that
+        // owns the window.
+        input: {
+          index: resolve(import.meta.dirname, 'src/main/index.ts'),
+          scanWorker: resolve(import.meta.dirname, 'src/main/scanWorker.ts'),
+        },
+        output: { entryFileNames: '[name].js' },
+      },
+    },
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
