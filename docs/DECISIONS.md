@@ -98,3 +98,30 @@ generated thumbnails of them, not "just the metadata".
 **Why:** carried over from PCT as a bright line. It is also easier to hold here than it was there:
 because OBJ8 is readable, XOP can generate everything it needs on the user's machine from the user's
 own installation, into a local cache.
+
+---
+
+## D8 — The installer writes the `scenery_packs.ini` line itself (2026-08-22)
+
+XOP inserts its own `SCENERY_PACK` line, **immediately below the `*GLOBAL_AIRPORTS*` marker**, at
+the top of the overlay tier. It backs the file up first, reorders nothing else, and shows the user
+the exact line it wrote and where.
+
+**Why it writes at all:** in X-Plane, copying a folder into `Custom Scenery` is half of installing
+scenery — the load order in `scenery_packs.ini` decides what actually wins, and editing it has
+always been a manual step. Leaving that to the user leaves the installation unfinished at precisely
+the point where people get it wrong. X-Plane does eventually discover the pack by itself, but it
+appends it **last**, which is the wrong tier: below photoscenery and mesh.
+
+**Why the top of the overlay tier:** these objects are something the user placed deliberately, one
+by one, on a map. Where they meet a landmark pack or a third-party overlay over the same tile, the
+user's own work should win. Custom airports stay above, because an XOP pack is never an airport (D2).
+
+**Constraints this puts on the installer, permanently:**
+
+- Back up `scenery_packs.ini` before touching `Custom Scenery`, somewhere the user can find it.
+- Insert exactly one line. **Never reorder, rewrite or normalize anything else.** The rest of that
+  file is the user's, and other tools write to it too — photoscenery downloaders inject their own
+  lines when their service starts, and X-Plane drops them again later. XOP is a guest in that file.
+- Never write an absolute path.
+- Uninstalling removes the folder **and** the line.
