@@ -27,12 +27,21 @@ This is the real inheritance. None of it is code.
 
 Under D4 both projects are GPL-3.0, so this is a copy, with attribution in the file header.
 
-- `geo.ts` — haversine, initial bearing, destination point, east/north offset. ~81 lines.
-- `arrange.ts` — row axis, along/cross projection, line-up and even-spacing. ~135 lines.
-- `footprint.ts` — bounding box to map corners. ~69 lines.
+- `src/core/geo/geo.ts` — haversine, initial bearing, destination point. **Copied**, ~80 lines. It
+  knows about the Earth, not about Aerofly, which is what made it portable.
+- `arrange.ts` — row axis, along/cross projection, line-up and even-spacing. ~135 lines. **Not taken
+  yet**; it will be, when XOP grows the arrange tools.
 
-That is roughly **285 lines**. It is the entire portable surface of a 20,000-line application, and
-saying so plainly is the point: what transfers between the two projects is judgement, not source.
+`footprint.ts` was on this list at the start of the project and **did not survive contact**. PCT's
+version speaks Aerofly's axes (+Y north at direction 0, an origin-centred `scale_factor`, a
+`rotateAzimuth` that turns azimuths negative). X-Plane's are +X east and +Z south, the rotation is
+plainly clockwise, and there is no scale argument at all. Every line of it would have had to change,
+and a copy edited that heavily is a worse starting point than a rewrite — the comments would still
+be describing the other simulator. XOP's `src/core/geo/footprint.ts` is written from the OBJ8 axes
+directly, and carries its own probe evidence.
+
+So what actually crossed is **~80 lines** out of a 20,000-line application, and saying so plainly is
+the point: what transfers between the two projects is judgement, not source.
 
 ## Taken: shapes worth copying, reimplemented
 

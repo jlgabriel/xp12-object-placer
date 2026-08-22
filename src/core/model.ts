@@ -35,3 +35,25 @@ export interface PlacedObject {
   readonly label?: string;
   readonly locked?: boolean;
 }
+
+/**
+ * An object's footprint on the ground, in model-local metres, exactly as OBJ8 stores it.
+ *
+ * X-Plane's axes: **+X east, +Z south** at rotation 0 (+Y is up and plays no part in a footprint).
+ *
+ * ⚠️ This is a box, not a size, and the difference is the whole reason the type exists. A DSF
+ * `OBJECT` puts the model's **origin** on the coordinate, and the origin is very often not in the
+ * middle of the object. Measured over a 742-object sample of the real catalog: only **55%** sit
+ * within half a metre of their box centre, 45% do not, and **13% are off-centre by more than ten
+ * metres** — a hangar whose origin is at its door, an airliner whose origin is at its nose gear, a
+ * jetway segment 40 m from the middle of its own bounding box.
+ *
+ * So a map footprint drawn as `width × depth` centred on the anchor would be wrong for nearly half
+ * the library, and wrong by a building's length for one object in eight. Carry the box.
+ */
+export interface GroundBox {
+  readonly minX: number;
+  readonly maxX: number;
+  readonly minZ: number;
+  readonly maxZ: number;
+}

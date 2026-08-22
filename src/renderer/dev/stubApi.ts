@@ -1,4 +1,5 @@
 import type { CatalogEntry, CatalogSnapshot, Installation, XopApi } from '../../shared/api.js';
+import type { GroundBox } from '../../core/model.js';
 
 /**
  * A believable `window.xop` for the browser harness.
@@ -7,7 +8,21 @@ import type { CatalogEntry, CatalogSnapshot, Installation, XopApi } from '../../
  * range, and — deliberately — every awkward case the real catalog contains, because those are the
  * ones a layout gets wrong. An object with no measurement, one that is nothing but a ground
  * marking, one that is 1.1 km across, one with five variants, and one whose files are not installed.
+ *
+ * ★ Including the origin's real position. A ground box centred on the anchor is the easy case, and
+ * only 55% of the real catalog is that case — so three entries here are deliberately off-centre the
+ * way the measured objects are: a hangar anchored at its door, an airliner anchored at its nose
+ * gear, a jetway segment anchored at one end. If the map draws those right, it draws the library
+ * right.
  */
+
+/**
+ * A ground box centred on the origin, which is what a little over half the real catalog looks like.
+ * The entries that are *not* centred pass their own `ground` — see the note on ENTRIES.
+ */
+function centred(width: number, depth: number): GroundBox {
+  return { minX: -width / 2, maxX: width / 2, minZ: -depth / 2, maxZ: depth / 2 };
+}
 
 function entry(
   virtualPath: string,
@@ -25,12 +40,16 @@ function entry(
     animated: false,
     grounded: false,
     ...(size ? { size: { width: size[0], height: size[1], depth: size[2] } } : {}),
+    ...(size ? { ground: centred(size[0], size[2]) } : {}),
     ...extra,
   };
 }
 
 const ENTRIES: CatalogEntry[] = [
-  entry('lib/airport/hangars/arched/16x16/rusted_1.obj', [16.4, 6.0, 16.1]),
+  // Anchored at the middle of its front wall: the box reaches away from the anchor, not around it.
+  entry('lib/airport/hangars/arched/16x16/rusted_1.obj', [16.4, 6.0, 16.1], {
+    ground: { minX: -8.2, maxX: 8.2, minZ: -16.1, maxZ: 0 },
+  }),
   entry('lib/airport/hangars/arched/16x16/gray_1.obj', [16.4, 6.0, 16.1], { variantCount: 3 }),
   entry('lib/airport/hangars/modern/40x40/white.obj', [40.2, 12.5, 39.8]),
   entry('lib/airport/control_towers/small/14m_Sweden.obj', [8.8, 18.0, 8.1]),
@@ -39,8 +58,16 @@ const ENTRIES: CatalogEntry[] = [
   entry('lib/airport/Common_Elements/Vehicles/Pushback.obj', [2.2, 1.6, 4.1], { animated: true }),
   entry('lib/airport/Common_Elements/Barriers/concrete/red_1_5m.obj', [1.5, 1.0, 0.4]),
   entry('lib/airport/aircraft/general/Cessna_172.obj', [11.0, 2.7, 8.3]),
-  entry('lib/airport/aircraft/airliners/A320_generic.obj', [34.1, 11.8, 37.6], { variantCount: 5 }),
-  entry('lib/airport/markings/taxi/centreline_yellow.obj', [0.3, 0, 12.0], { grounded: true }),
+  // Anchored at the nose gear, which is a long way from the centre of an airliner.
+  entry('lib/airport/aircraft/airliners/A320_generic.obj', [34.1, 11.8, 37.6], {
+    variantCount: 5,
+    ground: { minX: -17.05, maxX: 17.05, minZ: -5.2, maxZ: 32.4 },
+  }),
+  // Anchored at one end, the way a segment meant to be laid end to end has to be.
+  entry('lib/airport/markings/taxi/centreline_yellow.obj', [0.3, 0, 12.0], {
+    grounded: true,
+    ground: { minX: -0.15, maxX: 0.15, minZ: 0, maxZ: 12 },
+  }),
   entry('lib/airport/markings/apron/stand_number_12.obj', [4.0, 0, 4.0], { grounded: true }),
   entry('lib/airport/lights/approach/PAPI_4_box.obj', [4.8, 1.1, 1.2]),
   entry('lib/airport/radars/ASR/red_white_antenna.obj', [7.4, 22.6, 7.4], { animated: true }),
@@ -77,6 +104,7 @@ const INSTALLATION: Installation = {
 };
 
 const SNAPSHOT: CatalogSnapshot = {
+  version: 2,
   installation: INSTALLATION.path,
   scannedAt: '2026-08-22T20:38:07.000Z',
   entries: ENTRIES,
@@ -98,9 +126,13 @@ const SNAPSHOT: CatalogSnapshot = {
  *   ?state=first-run   the installation picker, with one good entry and three stale ones
  *   ?state=no-catalog  chosen installation, nothing scanned yet
  *   ?state=scanning    mid-scan
+ *   ?state=placed      the editor with objects already on the map (see preview.tsx)
  *   (default)          the catalog
  */
-export type StubState = 'first-run' | 'no-catalog' | 'scanning' | 'catalog';
+export type StubState = 'first-run' | 'no-catalog' | 'scanning' | 'catalog' | 'placed';
+
+/** The same entries the preview seeds placements from, so the two never drift apart. */
+export const STUB_ENTRIES: readonly CatalogEntry[] = ENTRIES;
 
 export function installStubApi(state: StubState): void {
   const api: XopApi = {
@@ -120,7 +152,7 @@ export function installStubApi(state: StubState): void {
     selectInstallation: async () => INSTALLATION,
     browseForInstallation: async () => INSTALLATION,
 
-    getCatalog: async () => (state === 'catalog' ? SNAPSHOT : null),
+    getCatalog: async () => (state === 'catalog' || state === 'placed' ? SNAPSHOT : null),
     rescanCatalog: async () => SNAPSHOT,
 
     onScanProgress: (listener) => {

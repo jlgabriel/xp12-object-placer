@@ -125,3 +125,37 @@ user's own work should win. Custom airports stay above, because an XOP pack is n
   lines when their service starts, and X-Plane drops them again later. XOP is a guest in that file.
 - Never write an absolute path.
 - Uninstalling removes the folder **and** the line.
+
+---
+
+## D9 — The map draws a turned box and an anchor, never a heading arrow (2026-08-22)
+
+A placed object is drawn as its real ground rectangle from OBJ8, turned by its rotation, with a dot
+on the model origin. The rotate grip is a control in its own colour on a dashed arm, shown only
+while the object is selected, and its readout says **"rotation"**.
+
+There is no nose arrow, no facing tick, and no field anywhere that calls a rotation a heading.
+
+**Why:** rotation 0 does not mean "facing north" — it means "as the artist modelled it". The stock
+fuel truck faces **south** at rotation 0 (probe H0b). An object's real compass heading is
+`artistBaseHeading + rotation`, and `artistBaseHeading` is not recorded anywhere in OBJ8; which end
+of a mesh is "the front" is semantics, not geometry, and no amount of parsing will recover it.
+
+So an arrow would be a drawing of something we do not know, wrong for a large part of the library,
+and confidently wrong — which is worse than saying nothing. A box is a fact. The user turns the
+object **by eye against the imagery**, which is how you would judge it anyway.
+
+The grip hangs off the model's `-Z` side, which makes its compass bearing equal the rotation value
+exactly. That is a readability decision, not a claim: drag the grip to a bearing and the number that
+goes into the DSF is that bearing, with no offset and no sign flip.
+
+**Consequences:**
+
+- No `heading` field, no `heading` label, no "facing" arrow, ever.
+- The anchor dot is drawn separately from the box **because the two are usually not in the same
+  place**: measured over the real catalog, only 55% of objects have their origin at the centre of
+  their own ground box, and 13% are more than ten metres off it (`reference/obj8.md`). The catalog
+  therefore carries the ground rectangle, not a width and a depth, and the difference between where
+  you clicked and where the building lands is visible instead of surprising.
+- If a future version wants to show a heading, it has to get the base heading from somewhere real —
+  a user saying so, per object — and store it as what it is: a guess the user made.

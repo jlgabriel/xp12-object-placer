@@ -9,6 +9,8 @@
  * including the two traps this parser exists to get right — TAB delimiters and draped geometry.
  */
 
+import type { GroundBox } from '../model.js';
+
 export interface Vec3 {
   readonly x: number;
   readonly y: number;
@@ -67,6 +69,17 @@ export function sizeOf(bounds: Bounds): Obj8Size {
     height: Math.max(0, bounds.max.y),
     depth: bounds.max.z - bounds.min.z,
   };
+}
+
+/**
+ * The ground footprint of those bounds: the X/Z rectangle, in model-local metres.
+ *
+ * Deliberately not reduced to width and depth like `sizeOf`. The model origin — where the DSF
+ * coordinate puts the object — is inside this rectangle somewhere, and for 45% of the real catalog
+ * that somewhere is not the middle. See GroundBox in src/core/model.ts for the measurement.
+ */
+export function groundOf(bounds: Bounds): GroundBox {
+  return { minX: bounds.min.x, maxX: bounds.max.x, minZ: bounds.min.z, maxZ: bounds.max.z };
 }
 
 /** How far the geometry reaches below the insertion plane. Positive metres, 0 when it does not. */

@@ -13,6 +13,16 @@ import { buildCatalog, placeableObjects } from '../core/catalog/catalog.js';
 import { scanLibraries } from '../node/scanLibraries.js';
 import { measureObjects } from '../node/measureObjects.js';
 import type { CatalogEntry, CatalogSnapshot, ScanProgress } from '../shared/api.js';
+import type { GroundBox } from '../core/model.js';
+
+/**
+ * Bump when a snapshot field the renderer relies on is added or changes meaning.
+ *
+ * 2: entries carry `ground`, the object's footprint rectangle. Version 1 snapshots had only a size,
+ *    which cannot be turned into a footprint after the fact — the origin's place inside the box is
+ *    not recoverable from width and depth.
+ */
+const SNAPSHOT_VERSION = 2;
 
 function cacheFile(userData: string, installation: string): string {
   // The installation path is not safe as a filename; its digest is, and it is stable.
@@ -26,8 +36,11 @@ export function readCachedCatalog(userData: string, installation: string): Catal
       readFileSync(cacheFile(userData, installation), 'utf8'),
     ) as CatalogSnapshot;
     // A cache built for a different installation is worse than none: it would offer objects that
-    // are not there.
-    return snapshot.installation === installation ? snapshot : null;
+    // are not there. One written by an older build is worse than none for the same kind of reason —
+    // the renderer would draw whatever it could and quietly leave out what it could not.
+    if (snapshot.installation !== installation) return null;
+    if (snapshot.version !== SNAPSHOT_VERSION) return null;
+    return snapshot;
   } catch {
     return null;
   }
@@ -73,6 +86,7 @@ export function scanCatalog(
       name: string;
       category: readonly string[];
       size?: { width: number; height: number; depth: number };
+      ground?: GroundBox;
       variantCount: number;
       animated: boolean;
       grounded: boolean;
@@ -86,12 +100,16 @@ export function scanCatalog(
       // Height of zero and a draped extent means the object is a marking, not a building.
       grounded: measured !== undefined && measured.size.height === 0,
     };
-    if (measured) entry.size = measured.size;
+    if (measured) {
+      entry.size = measured.size;
+      entry.ground = measured.ground;
+    }
     if (unavailable) entry.unavailable = unavailable;
     return entry;
   });
 
   const snapshot: CatalogSnapshot = {
+    version: SNAPSHOT_VERSION,
     installation,
     scannedAt: new Date().toISOString(),
     entries,

@@ -18,7 +18,19 @@ default or custom.
 
 ## Status
 
-Early — no window yet, and nothing to install. What works today is the data layer, headless:
+Early, and nothing to install yet — but the chain from *pick an object* to *see it in the right
+place on a map* is closed.
+
+The window opens on your X-Plane installation, reads its libraries, and gives you the objects it
+actually has. Pick one, click the map, and it lands there: drawn as its real footprint, turned by
+its rotation, with a dot on the point the coordinate refers to. Drag the box to move it, drag the
+cyan grip to turn it against the satellite imagery.
+
+What is still missing is the other end: writing the pack out and installing it. The pieces exist and
+have been flown (`src/core/dsf`, [`probes/`](probes/)); they are not wired to the window yet.
+Thumbnails are missing too.
+
+The data layer also runs headless:
 
 ```bash
 npm install
@@ -28,11 +40,6 @@ npm run scan -- "/path/to/X-Plane 12" --geometry --out scratch/catalog.json
 That reads every `library.txt` in the installation, resolves the virtual paths, parses the OBJ8
 files and measures them. On a real install: 23 libraries, 49 233 exports, 13 100 of them objects,
 **3 837 an actual person would want to place**, measured at ~250 objects a second.
-
-Writing the overlay works too — `src/core/dsf` turns placed objects into a DSF text that DSFTool
-compiles and X-Plane loads. Both halves have been flown; see [`probes/`](probes/).
-
-What is missing is everything in between: the map, the catalog UI, and thumbnails.
 
 See [`docs/DECISIONS.md`](docs/DECISIONS.md) for what has been settled and
 [`reference/`](reference/) for the file-format notes, which mark what was verified on disk versus

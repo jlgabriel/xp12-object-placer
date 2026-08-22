@@ -10,17 +10,24 @@ import { readFileSync } from 'node:fs';
 import { containedJoin } from './containedPath.js';
 import {
   belowGround,
+  groundOf,
   parseObj8,
   sizeOf,
   type Obj8Size,
 } from '../core/obj8/parse.js';
 import type { CatalogObject } from '../core/catalog/catalog.js';
+import type { GroundBox } from '../core/model.js';
 
 export interface ObjectMeasurement {
   readonly virtualPath: string;
   /** Absolute path of the variant that was measured. */
   readonly measuredFile: string;
   readonly size: Obj8Size;
+  /**
+   * The same geometry as a ground rectangle rather than a size, because the model origin is not
+   * reliably in the middle of it. This is what the map draws — see GroundBox.
+   */
+  readonly ground: GroundBox;
   /** Metres of geometry below the insertion plane — foundations, usually. */
   readonly belowGround: number;
   readonly vertexCount: number;
@@ -141,6 +148,7 @@ function measureOne(
         virtualPath: string;
         measuredFile: string;
         size: Obj8Size;
+        ground: GroundBox;
         belowGround: number;
         vertexCount: number;
         triangleCount: number;
@@ -152,6 +160,7 @@ function measureOne(
         virtualPath: object.virtualPath,
         measuredFile: file,
         size: sizeOf(bounds),
+        ground: groundOf(bounds),
         belowGround: belowGround(bounds),
         vertexCount: geometry.vertexCount,
         triangleCount: geometry.triangleCount,

@@ -127,6 +127,33 @@ Two more things worth keeping:
   measuring the cab rather than the mast. Display measured dimensions, never parsed-from-the-name
   ones.
 
+## ⚠️★★ The model origin is NOT reliably in the middle of the object ✅
+
+**Measured 2026-08-22** over a 742-object sample of the real catalog (every fifth measured object,
+so the sample spans the whole alphabet rather than one library):
+
+| where the origin sits, relative to its own ground box | share |
+|---|---|
+| at the box **centre**, within ±0.5 m on both axes | **54.6%** |
+| on **one edge**, centred on the other axis | 15.6% |
+| at a **corner** — on both edges | 2.4% |
+| somewhere else entirely | 27.4% |
+
+Or by how far off it is: **31% are more than 2 m off their own centre, and 13% are more than 10 m
+off.** The worst in the sample is a hangar 60 m from the middle of its own bounding box.
+
+Real, checkable examples: `XCDL/Objects/Structures/ILS.obj` is 32.5 m long with its origin 0.5 m
+from one end; `XCDL/Objects/Vehicles/Semi_Truck.obj` is anchored at the cab, 7 m off centre; every
+`lib/airport/aircraft/airliners/*` is anchored near the nose gear.
+
+⇒ **A footprint drawn as `width × depth` around the coordinate is wrong for nearly half the library,
+and wrong by a building's length for one object in eight.** The catalog carries the ground rectangle
+(`minX/maxX/minZ/maxZ`) and not just a size, and the map draws the anchor dot separately so the
+difference between *where you clicked* and *where the building lands* is visible rather than
+surprising. See `GroundBox` in `src/core/model.ts`.
+
+There is no convention to lean on here: 55% centred is not a rule, it is a coin toss.
+
 ## ⚠️ Base Y can be negative ✅
 
 The hangar's geometry starts at −1.50 m — foundations modelled below ground. Framing a thumbnail on

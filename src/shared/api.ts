@@ -6,6 +6,8 @@
  * else would make the sandbox decorative.
  */
 
+import type { GroundBox } from '../core/model.js';
+
 export interface Installation {
   readonly path: string;
   readonly version?: string;
@@ -21,6 +23,15 @@ export interface CatalogEntry {
   readonly category: readonly string[];
   /** Absent when the object could not be measured; the UI has to cope rather than assume. */
   readonly size?: { readonly width: number; readonly height: number; readonly depth: number };
+  /**
+   * The footprint the map draws: the object's ground rectangle in model-local metres, with the
+   * anchor at (0, 0) wherever that falls inside it. Absent alongside `size`, for the same reason.
+   *
+   * `size` cannot stand in for it. The model origin sits off the centre of its own box for 45% of
+   * the real catalog, and by more than ten metres for 13% of it, so a width × depth rectangle drawn
+   * around the anchor would be visibly in the wrong place for a great many objects.
+   */
+  readonly ground?: GroundBox;
   readonly variantCount: number;
   readonly animated: boolean;
   /** True when the object is nothing but a ground decal — a marking, a stain, a drain. */
@@ -37,6 +48,15 @@ export interface CatalogEntry {
 }
 
 export interface CatalogSnapshot {
+  /**
+   * The shape of this snapshot. Bumped whenever a field the UI depends on is added, so a cache
+   * written by an older build is discarded instead of being drawn with a piece missing.
+   *
+   * Falling back — inventing a centred box for an entry that predates `ground`, say — would put a
+   * silently wrong footprint on the map, which is the one failure this project keeps refusing to
+   * ship. A rescan takes fifteen seconds and says so.
+   */
+  readonly version: number;
   readonly installation: string;
   readonly scannedAt: string;
   readonly entries: readonly CatalogEntry[];

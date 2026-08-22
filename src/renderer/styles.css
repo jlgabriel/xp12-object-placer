@@ -5,6 +5,8 @@
   --text: #d8e0e8;
   --dim: #7c8b9a;
   --accent: #4da3ff;
+  --armed: #f59e0b;
+  --grip: #22d3ee;
   --warn: #ff6b6b;
   color-scheme: dark;
 }
@@ -72,6 +74,8 @@ main {
   display: flex;
   flex-direction: column;
 }
+
+/* ── the first-run screens ─────────────────────────────────────────────────────────────────── */
 
 .picker,
 .scanning {
@@ -142,35 +146,51 @@ main {
   flex-direction: row;
 }
 
-.toolbar {
+/* ── the editor: objects | map | placed ───────────────────────────────────────────────────── */
+
+.editor {
+  flex-direction: row;
+  overflow: hidden;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+}
+
+.catalog-panel {
+  width: 360px;
+  border-right: 1px solid var(--line);
+}
+
+.placement-panel {
+  width: 300px;
+  border-left: 1px solid var(--line);
+}
+
+.panel-head {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--line);
 }
 
-.toolbar input[type="search"] {
-  flex: 1;
-  padding: 7px 10px;
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  font: inherit;
-}
-
-.toolbar label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.panel-head h2 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
   color: var(--dim);
+  margin: 0;
+  flex: 1;
 }
 
-.toolbar select,
-.toolbar button {
-  padding: 6px 10px;
-  background: var(--panel);
+button {
+  padding: 5px 10px;
+  background: #1e262f;
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -178,53 +198,90 @@ main {
   cursor: pointer;
 }
 
-.toolbar .count {
-  color: var(--dim);
-  font-variant-numeric: tabular-nums;
+button:hover:not(:disabled) {
+  border-color: var(--accent);
 }
 
-/* One grid, two users: the header and every row. Declaring the columns twice is how they drift. */
-.columns,
-.entries li {
+button.danger:hover {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+/* ── the catalog ──────────────────────────────────────────────────────────────────────────── */
+
+.filters {
   display: grid;
-  grid-template-columns: 250px 1fr 190px 220px;
-  gap: 12px;
-  padding: 5px 14px;
-}
-
-.columns {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  color: var(--dim);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  background: var(--panel);
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--line);
 }
 
-.listing {
+.filters input[type="search"] {
+  grid-column: 1 / -1;
+  padding: 7px 10px;
+  background: #12171d;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.filters label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dim);
+}
+
+.filters select {
+  padding: 4px 6px;
+  background: #12171d;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.count {
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.entries,
+.placed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   overflow: auto;
   flex: 1;
   min-height: 0;
 }
 
-.entries {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.entries li {
+.entries li button,
+.placed li button {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+  width: 100%;
+  padding: 6px 12px;
+  text-align: left;
+  background: none;
+  border: 0;
   border-bottom: 1px solid #1b232b;
+  border-radius: 0;
 }
 
-.entries li:hover {
-  background: var(--panel);
+.entries li button:hover:not(:disabled),
+.placed li button:hover {
+  background: #1e262f;
 }
 
-.entries .name {
+.entries .name,
+.placed .name {
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -232,48 +289,235 @@ main {
 }
 
 .entries .category,
-.entries .size {
+.placed .where {
   color: var(--dim);
+  font-size: 11.5px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* Every number carries its unit, because in a list this narrow there is no column header to carry
+   it for them. A bare "16.4 × 16.2" would be a measurement of nothing in particular. */
+.entries .facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
 .entries .size {
+  color: var(--dim);
+  font-size: 11.5px;
   font-variant-numeric: tabular-nums;
 }
 
-.entries .flags {
-  display: flex;
-  gap: 6px;
-}
-
-.entries .flags em {
+.entries .facts em {
   font-style: normal;
-  font-size: 11px;
-  padding: 1px 6px;
+  font-size: 10.5px;
+  padding: 0 6px;
   border: 1px solid var(--line);
   border-radius: 10px;
   color: var(--dim);
 }
 
+/* The armed object: what the next click on the map will place. */
+.entries li.armed button {
+  background: #2a2415;
+  box-shadow: inset 3px 0 0 var(--armed);
+}
+
 /* An object X-Plane would draw as nothing. Dimmed rather than hidden: a user looking for it
    deserves to be told it is missing, not to wonder where it went. */
+.entries li.unavailable button {
+  cursor: default;
+}
+
 .entries li.unavailable .name,
 .entries li.unavailable .category,
 .entries li.unavailable .size {
   opacity: 0.4;
 }
 
-.entries .flags em.missing {
+.entries .facts em.missing {
   color: var(--warn);
   border-color: #5a2b2b;
 }
 
 .truncated,
-footer {
-  padding: 8px 14px;
+.panel footer {
+  padding: 7px 12px;
   color: var(--dim);
+  font-size: 11.5px;
   border-top: 1px solid var(--line);
   margin: 0;
+}
+
+/* ── the map ──────────────────────────────────────────────────────────────────────────────── */
+
+.stage {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.mapbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.mapbar .providers {
+  display: flex;
+  gap: 6px;
+}
+
+.mapbar .providers button.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.goto {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.goto input {
+  width: 200px;
+  padding: 5px 8px;
+  background: #12171d;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.goto input.bad {
+  border-color: var(--warn);
+}
+
+.xop-map {
+  flex: 1;
+  min-height: 0;
+  background: #0c1015;
+}
+
+/* Leaflet writes its own classes onto this element, so nothing here may be applied by React. */
+.leaflet-container.placing {
+  cursor: crosshair;
+}
+
+.arming {
+  position: absolute;
+  top: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  max-width: 80%;
+  padding: 7px 12px;
+  border: 1px solid var(--armed);
+  border-radius: 6px;
+  background: #2a2415ee;
+  color: var(--text);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arming strong {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-weight: 400;
+  color: var(--armed);
+}
+
+kbd {
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #12171d;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+/* The live readout while the rotate grip is being dragged. Leaflet's default tooltip is a white
+   box, which is unreadable over satellite imagery at night-mode contrast. */
+.leaflet-tooltip.xop-rotate-tip {
+  background: #0c1015ee;
+  border: 1px solid var(--grip);
+  color: var(--grip);
+  font: 12px/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace;
+  box-shadow: none;
+}
+
+.leaflet-tooltip.xop-rotate-tip::before {
+  border-top-color: var(--grip);
+}
+
+/* ── what has been placed ─────────────────────────────────────────────────────────────────── */
+
+.placed li.on button {
+  background: #2a2415;
+  box-shadow: inset 3px 0 0 var(--armed);
+}
+
+.placement-panel .empty {
+  padding: 16px 12px;
+  margin: 0;
+  color: var(--dim);
+  flex: 1;
+}
+
+.inspector {
+  border-top: 1px solid var(--line);
+  padding: 10px 12px;
+}
+
+.inspector h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector dl {
+  margin: 0 0 10px;
+}
+
+.inspector dt {
+  color: var(--dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 7px;
+}
+
+.inspector dd {
+  margin: 1px 0 0;
+}
+
+.inspector .mono {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.inspector .wrap {
+  overflow-wrap: anywhere;
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.inspector .note {
+  margin: 0 0 10px;
+  color: var(--dim);
+  font-size: 11.5px;
 }
