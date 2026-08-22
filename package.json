@@ -5,20 +5,38 @@
   "description": "Place scenery objects on a map and export an X-Plane 12 overlay",
   "license": "GPL-3.0-or-later",
   "type": "module",
+  "main": "./out/main/index.js",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "npm run typecheck && npm run test",
     "scan": "tsx src/cli/scan.ts"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
+    "@types/leaflet": "^1.9.21",
+    "@types/node": "^26.1.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "43.0.0",
+    "electron-vite": "^5.0.0",
     "tsx": "^4.23.12",
-    "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "typescript": "^6.0.3",
+    "vite": "^7.3.6",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.15"
   }
 }

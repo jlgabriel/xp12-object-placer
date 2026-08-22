@@ -60,11 +60,16 @@ export interface MeasureResult {
 }
 
 /**
- * Measure the first variant of each object.
+ * Measure each object, taking the first variant that can actually be read.
  *
- * Only the first: variants of one virtual path are alternative looks for the same thing, so their
- * footprints agree closely enough for a catalog. Measuring all of them would multiply the work for
- * a difference nobody would see on a map.
+ * Not simply the first variant. Variants of one virtual path are alternative looks for the same
+ * thing, so measuring one is enough — but a library can export a file its package does not ship,
+ * and stopping at a missing first variant would report an object as unmeasurable while another
+ * package holds a perfectly good copy of it.
+ *
+ * When every variant fails, that matters more than a blank size: X-Plane resolves a virtual path it
+ * cannot find by drawing **nothing at all**, with no error anywhere. Offering such an object would
+ * let somebody place it, export, fly out to look, and find bare grass.
  */
 export function measureObjects(
   objects: readonly CatalogObject[],
@@ -75,18 +80,31 @@ export function measureObjects(
   const failures: MeasureFailure[] = [];
 
   objects.forEach((object, index) => {
-    const variant = object.variants[0];
-    if (!variant) return;
+    const measurement = measureOne(object, packagePathsByName, failures);
+    if (measurement) measurements.push(measurement);
+    if (onProgress && index % 250 === 0) onProgress(index, objects.length);
+  });
 
+  return { measurements, failures };
+}
+
+function measureOne(
+  object: CatalogObject,
+  packagePathsByName: ReadonlyMap<string, string>,
+  failures: MeasureFailure[],
+): ObjectMeasurement | null {
+  const attempts: MeasureFailure[] = [];
+
+  for (const variant of object.variants) {
     const packagePath = packagePathsByName.get(variant.packageName);
     if (!packagePath) {
-      failures.push({
+      attempts.push({
         virtualPath: object.virtualPath,
         file: variant.relativePath,
         reason: 'unknown-package',
         message: `unknown package ${variant.packageName}`,
       });
-      return;
+      continue;
     }
 
     const file = join(packagePath, variant.relativePath);
@@ -98,13 +116,13 @@ export function measureObjects(
       // draped extent, so measure that rather than throwing them out of the catalog.
       const bounds = geometry.bounds ?? geometry.drapedBounds;
       if (!bounds) {
-        failures.push({
+        attempts.push({
           virtualPath: object.virtualPath,
           file,
           reason: 'no-geometry',
           message: 'no geometry of any kind',
         });
-        return;
+        continue;
       }
 
       const measurement: {
@@ -131,19 +149,20 @@ export function measureObjects(
       };
       if (geometry.drapedBounds) measurement.drapedSize = sizeOf(geometry.drapedBounds);
 
-      measurements.push(measurement);
+      return measurement;
     } catch (error) {
       const missing = (error as NodeJS.ErrnoException)?.code === 'ENOENT';
-      failures.push({
+      attempts.push({
         virtualPath: object.virtualPath,
         file,
         reason: missing ? 'missing-file' : 'parse-error',
         message: error instanceof Error ? error.message : String(error),
       });
     }
+  }
 
-    if (onProgress && index % 250 === 0) onProgress(index, objects.length);
-  });
-
-  return { measurements, failures };
+  // Every variant failed. Report the first reason — they are almost always the same, and a list of
+  // five identical "file not found" lines helps nobody.
+  if (attempts[0]) failures.push(attempts[0]);
+  return null;
 }
