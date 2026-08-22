@@ -113,27 +113,62 @@ Order decides which pack wins. Users curate it by hand. Unlike Aerofly — where
 drop-in and uninstalling meant deleting a folder — an X-Plane installer does not write only inside
 its own directory.
 
-### What probe H0 measured (2026-08-22) ✅
+### ★★ Order is the whole point ✅
 
-- **X-Plane rewrites this file on every startup**, within seconds of launching. Confirmed by
-  timestamps across two consecutive launches.
-- **It discovers a new pack in `Custom Scenery/` by itself and appends it last** — last meaning
-  lowest priority.
-- ⚠️⚠️ **It can silently delete entries the user put there.** On the launch that discovered our
-  probe, four `SCENERY_PACK` lines pointing at absolute paths outside `Custom Scenery` disappeared.
-  The folders exist. Nothing was written to `Log.txt` about them — no warning, no error, no mention.
-  Whether our pack triggered the rewrite that dropped them is **not determined**; one launch cannot
-  separate the two causes.
+**Earlier lines win.** Installing scenery in X-Plane has always meant editing this file by hand to
+put the new line in the right place — dropping a folder into `Custom Scenery` is only half the job.
+This is the part of installation that XOP has to get right, and the part a naive installer gets
+wrong.
 
-**Rules for the installer, true under either explanation:**
+The structure, read off a real curated installation (41 lines, 12 airports, 16 landmark packs, a
+library and a photoscenery base):
 
-1. **Back up `scenery_packs.ini` before touching `Custom Scenery`**, and keep the backup where the
+```
+I
+1000 Version
+SCENERY
+
+SCENERY_PACK Custom Scenery/X-Plane Airports - LSEZ Zermatt Heliport/   ← custom airports
+SCENERY_PACK Custom Scenery/Aerosoft - LFMN Nice Cote d Azur X/            (highest priority)
+…
+SCENERY_PACK *GLOBAL_AIRPORTS*                          ← ★ the divider. Not a folder: a marker.
+                                                          Custom airports go ABOVE it so they
+                                                          override the Global Airports database.
+SCENERY_PACK Custom Scenery/X-Plane Landmarks - Paris/  ← overlays: objects, landmarks
+…
+SCENERY_PACK Custom Scenery/Global_Forests_v2/
+SCENERY_PACK Custom Scenery/X-Codr Designs Library/     ← object libraries
+SCENERY_PACK D:\…\XPME_South_America/                   ← photoscenery / mesh, last = lowest
+```
+
+Four tiers, top to bottom: **custom airports · `*GLOBAL_AIRPORTS*` · overlays · libraries · mesh and
+photoscenery.**
+
+**An XOP pack is an overlay** (D2 — it is never an airport), so it belongs in the third tier: below
+`*GLOBAL_AIRPORTS*`, above any base-mesh or photoscenery pack. **Appending it at the end of the file
+is wrong**, and that is exactly what X-Plane does on its own.
+
+⚠️ Third-party tools write into this file too. Photoscenery downloaders inject their own
+`SCENERY_PACK` lines when their service starts, and X-Plane drops those lines again when it rewrites
+the file and the folders are not currently being served. So the file is not a stable document owned
+by one party — **X-Plane, the user, and other tools all write to it.**
+
+**Rules for the XOP installer:**
+
+1. **Back up `scenery_packs.ini` before touching `Custom Scenery`**, and leave the backup where the
    user can find it.
-2. **Write our own `SCENERY_PACK` line** rather than relying on discovery, so the pack's position is
-   ours to choose and does not depend on X-Plane's rewrite.
-3. **Tell the user that X-Plane manages this file** and that installing any scenery can change it.
-   A tool that silently rearranges a hand-curated load order is a tool people uninstall.
-4. Never write an absolute path into it.
+2. **Write our own `SCENERY_PACK` line, in the overlay tier** — never rely on X-Plane's discovery,
+   which appends last and therefore lowest.
+3. **Never reorder anything else.** Insert one line and leave every other line exactly where it was.
+4. Never write an absolute path.
+5. **Say what was done.** Show the user the line and where it went.
+
+### What probe H0 also measured (2026-08-22) ✅
+
+- **X-Plane rewrites this file on every startup**, within seconds of launching.
+- **It discovers a new pack in `Custom Scenery/` by itself and appends it last.** Our probe loaded
+  from there, so an object overlay does still work in the bottom tier — but that is luck, not
+  design, and it would not survive a photoscenery pack above it.
 
 ## `Log.txt` ✅
 

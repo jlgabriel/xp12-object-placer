@@ -117,17 +117,25 @@ entries.** Our pack was appended last:
 - SCENERY_PACK D:\Simuladores\XPlane Map Enhancement Base\XPME_South_America/
 ```
 
-Those four are absolute paths with backslashes, pointing at folders that exist but hold a
-half-finished download (`.aria2` files alongside `Earth nav data`). X-Plane logged them zero times.
-File timestamps show X-Plane rewrote the file on both this launch and the previous one, and the
-previous rewrite had kept those lines.
+**Resolved afterwards, and it is benign.** Those four lines are not hand-written user entries: they
+are injected by a photoscenery downloader when its service starts, and X-Plane drops them again when
+it rewrites the file with that service not running. Nothing was lost — starting the service puts
+them back. Our pack did not cause it.
 
-**What is proven:** X-Plane owns this file, rewrites it unprompted, and can drop user entries
-without saying so anywhere in the log.
+**What remains proven, and matters more than the false alarm:**
 
-**What is not proven:** whether installing our pack triggered the removal, or whether those entries
-were going to be dropped regardless. One launch cannot separate the two.
+- X-Plane rewrites `scenery_packs.ini` on every startup and **appends a newly discovered pack last,
+  which is the lowest priority slot.**
+- The file is not owned by one party. X-Plane, the user, and third-party tools all write to it.
+- **Order is the substance of installing scenery in X-Plane.** Reading the real file revealed the
+  tier structure and the `*GLOBAL_AIRPORTS*` divider — now documented in
+  [`reference/dsf-overlay.md`](../../reference/dsf-overlay.md#-order-is-the-whole-point-). Our probe
+  worked from the bottom tier by luck; a photoscenery pack above it would have changed that.
 
-**Consequence for XOP, either way:** the installer must back up `scenery_packs.ini` before touching
-`Custom Scenery`, write its own `SCENERY_PACK` line rather than relying on discovery, and tell the
-user plainly that X-Plane manages this file. Do not assume a pack installs itself harmlessly.
+**Consequence for XOP:** the installer writes its own line, in the overlay tier, after backing the
+file up, and reorders nothing else. Dropping a folder into `Custom Scenery` is half the job.
+
+**Method note.** The alarm was raised on real evidence and retracted on better evidence, which is
+the process working. The lesson worth keeping is narrower: *a diff proves what changed, never who
+changed it.* Two consecutive launches cannot separate a correlation from a cause, and the domain
+knowledge that settled it was one sentence from someone who had used the tool.
