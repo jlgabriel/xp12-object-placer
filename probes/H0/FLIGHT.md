@@ -81,6 +81,53 @@ appear but the pack loaded, resolution is the problem, not the DSF.
 X-Plane added the line and where; X-Plane rewrote the ordering; or X-Plane left the file alone,
 meaning an installer must write the line itself and must decide where to put it.
 
-## Result
+## Result — flown 2026-08-22, X-Plane 12.4.3
 
-_(to be filled in after the flight — record what was seen, not what was expected)_
+**Q1 — did it load? YES.** `Log.txt`:
+
+```
+ 33 Custom Scenery/XPOP_H0_Probe/
+0:00:40.183 I/SCN: DSF load time: 6599 for file
+  Custom Scenery/XPOP_H0_Probe/Earth nav data/-40-080/-34-071.dsf (0 tris, 0 skipped for 0.0 m^2)
+```
+
+No errors, no warnings about the pack. `0 tris` is expected: an object-only overlay contributes no
+terrain triangles.
+
+**Q4 — do library virtual paths resolve from a pack that ships nothing? YES.** The objects are
+visible in the simulator and the pack is 3 KB with no `objects/` folder. **This is the finding the
+whole application rests on:** an XOP scenery pack can be a single DSF and nothing else.
+
+**Q3 — terrain contact: yes, provisionally.** The tower and the trucks sit on the ground with no
+float and no sinking, judged from screenshots. Good enough to proceed; revisit on sloped ground.
+
+**Q2 — rotation: NOT ANSWERED.** The two trucks were 60 m apart along the line of sight, so the far
+one was too small to read an angle from. This is a flaw in *this sheet*, not in the simulator: 45°
+between two small objects at different distances is not a legible reading. Superseded by probe
+[H0b](../H0b/FLIGHT.md), which uses four trucks at 90° steps on a north–south line.
+
+**Q5 — `scenery_packs.ini`: X-Plane rewrites it on every startup, and it removed four of the user's
+entries.** Our pack was appended last:
+
+```
++ SCENERY_PACK Custom Scenery/XPOP_H0_Probe/
+- SCENERY_PACK D:\Simuladores\XPlane Map Enhancement Base\XPME_Overlays/
+- SCENERY_PACK D:\Simuladores\XPlane Map Enhancement Base\XPME_Europe/
+- SCENERY_PACK D:\Simuladores\XPlane Map Enhancement Base\XPME_North_America/
+- SCENERY_PACK D:\Simuladores\XPlane Map Enhancement Base\XPME_South_America/
+```
+
+Those four are absolute paths with backslashes, pointing at folders that exist but hold a
+half-finished download (`.aria2` files alongside `Earth nav data`). X-Plane logged them zero times.
+File timestamps show X-Plane rewrote the file on both this launch and the previous one, and the
+previous rewrite had kept those lines.
+
+**What is proven:** X-Plane owns this file, rewrites it unprompted, and can drop user entries
+without saying so anywhere in the log.
+
+**What is not proven:** whether installing our pack triggered the removal, or whether those entries
+were going to be dropped regardless. One launch cannot separate the two.
+
+**Consequence for XOP, either way:** the installer must back up `scenery_packs.ini` before touching
+`Custom Scenery`, write its own `SCENERY_PACK` line rather than relying on discovery, and tell the
+user plainly that X-Plane manages this file. Do not assume a pack installs itself harmlessly.

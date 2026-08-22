@@ -113,9 +113,27 @@ Order decides which pack wins. Users curate it by hand. Unlike Aerofly — where
 drop-in and uninstalling meant deleting a folder — an X-Plane installer does not write only inside
 its own directory.
 
-**Open question, measured by probe H0:** does X-Plane add a newly discovered pack to this file by
-itself, and *where* does it insert it relative to the existing order? H0 ships without its line
-written, and the file is backed up before the flight so the two can be diffed.
+### What probe H0 measured (2026-08-22) ✅
+
+- **X-Plane rewrites this file on every startup**, within seconds of launching. Confirmed by
+  timestamps across two consecutive launches.
+- **It discovers a new pack in `Custom Scenery/` by itself and appends it last** — last meaning
+  lowest priority.
+- ⚠️⚠️ **It can silently delete entries the user put there.** On the launch that discovered our
+  probe, four `SCENERY_PACK` lines pointing at absolute paths outside `Custom Scenery` disappeared.
+  The folders exist. Nothing was written to `Log.txt` about them — no warning, no error, no mention.
+  Whether our pack triggered the rewrite that dropped them is **not determined**; one launch cannot
+  separate the two causes.
+
+**Rules for the installer, true under either explanation:**
+
+1. **Back up `scenery_packs.ini` before touching `Custom Scenery`**, and keep the backup where the
+   user can find it.
+2. **Write our own `SCENERY_PACK` line** rather than relying on discovery, so the pack's position is
+   ours to choose and does not depend on X-Plane's rewrite.
+3. **Tell the user that X-Plane manages this file** and that installing any scenery can change it.
+   A tool that silently rearranges a hand-curated load order is a tool people uninstall.
+4. Never write an absolute path into it.
 
 ## `Log.txt` ✅
 
