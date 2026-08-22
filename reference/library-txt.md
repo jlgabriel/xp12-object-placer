@@ -45,6 +45,37 @@ For scale: PCT's Aerofly catalog held 911 objects. Getting from 13 100 exports d
 a person might actually want is the real work, and most of it is done by the libraries themselves —
 see the visibility markers below.
 
+## What the catalog actually looks like ✅
+
+The 3 837 placeable objects, by top-level branch, with the longer side of their footprint:
+
+| branch | objects | median | p90 | max |
+|---|---|---|---|---|
+| `airport` | 1 795 | 12 m | 40 m | 655 m |
+| `g10` (autogen buildings) | 774 | 26 m | 60 m | **1 123 m** |
+| `XCDL` (third party) | 386 | 17 m | 46 m | 55 m |
+| `industrial_area` | 197 | 6 m | 12 m | 12 m |
+| `vehicles` | 185 | 10 m | 16 m | 18 m |
+| `street` | 115 | 2 m | 6 m | 7 m |
+| `constructions` | 92 | 6 m | 19 m | 52 m |
+| `ships` | 62 | 5 m | 15 m | 189 m |
+| the rest | 231 | | | |
+
+`airport` alone splits usefully: `Common_Elements` 465, `hangars` 380, `aircraft` 259, `markings`
+150, `lights` 143, `Ramp_Equipment` 140, `control_towers` 23, `radars` 21.
+
+**The tree is good enough to ship as-is.** It came from the paths; nobody curated it for us.
+
+⚠️ **But the sizes are the second axis, and they matter as much.** The largest "object" in the
+catalog is 1 123 × 517 m — `lib/g10/US/urban_high/0448A0448R512.obj`, an entire city block meant for
+autogen, with a coded name no person would search for. Meanwhile the same `g10` branch holds
+`carport1_6x3` and `gar1_6x12`, which are exactly the kind of thing somebody decorating a field
+wants.
+
+So **do not exclude branches**. A 1 km object is self-evidently wrong the moment its footprint is
+drawn on the map, and the measurements are already there. Give the catalog a size filter and show
+the footprint; that is better curation than any blocklist, and it does not hide the garages.
+
 ## Directive inventory ✅ — counted, not assumed
 
 Every directive present in those 23 files, by frequency. Anything not on this list has never been

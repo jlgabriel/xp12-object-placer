@@ -92,8 +92,13 @@ them.
 ## Bounding boxes work — and they are validated at scale ✅
 
 `src/core/obj8/parse.ts` measured **3 706 of the 3 837 placeable objects** in a real installation, at
-about 250 objects per second. Of the 131 it could not: 99 have no geometry at all (light-only
-entries in `sim objects`) and 32 point at files their package does not ship.
+about 250 objects per second. Of the 131 it could not: 99 are empty stubs and 32 point at files
+their package does not ship.
+
+The stubs are worth knowing about. `lib/legacy/radio_tower.obj` and its neighbours contain a valid
+OBJ8 header and **nothing else** — no `POINT_COUNTS`, no `VT`, no `TRIS`. They exist so that old
+scenery referencing those virtual paths still resolves. Reporting them as unmeasurable is right;
+they are placeholders, not objects.
 
 ★★ **The names are free ground truth.** Many library paths encode the object's dimensions —
 `hangars/arched/16x16/`, `shelters/white/11x15.obj`. Comparing the parsed geometry against the
