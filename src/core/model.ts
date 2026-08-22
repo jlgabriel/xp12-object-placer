@@ -15,9 +15,16 @@ export interface LonLat {
 /**
  * One object placed in the world.
  *
- * `rotation` is the fourth argument of the DSF `OBJECT` command, in degrees, verbatim. It is
- * deliberately *not* called `heading`: what it means in compass terms is what probe H0 measures.
- * Until H0 reports, no code may assume a mapping between the two.
+ * `rotation` is the fourth argument of the DSF `OBJECT` command, in degrees, verbatim.
+ *
+ * Probe H0b established that it runs **clockwise**, the ordinary compass sense, so a rotation
+ * handle on the map maps onto it 1:1 with no sign flip.
+ *
+ * It is still deliberately not called `heading`, and that is not pedantry. Rotation 0 does not mean
+ * "facing north" — it means "as the artist modelled it". The stock fuel truck faces south at 0.
+ * The object's real compass heading is `artistBaseHeading + rotation`, and `artistBaseHeading` is
+ * not recorded anywhere in OBJ8. Nothing in this codebase may assume the two are the same number.
+ * See probes/H0b/FLIGHT.md.
  */
 export interface PlacedObject {
   readonly id: string;

@@ -60,6 +60,26 @@ OBJECT <defIndex> <lon> <lat> <rotation>
 Four arguments. **Longitude before latitude.** Definition indices are zero-based, in the order the
 `OBJECT_DEF` lines appear.
 
+### The rotation argument ✅ — measured by probe H0b
+
+**Degrees clockwise**, the ordinary compass sense. A rising argument turns the object to the right.
+No sign flip is needed anywhere between a map rotation handle and the file.
+
+⚠️ **But rotation 0 does not mean "facing north".** It means "as the artist modelled it". The stock
+fuel truck `lib/airport/Common_Elements/Vehicles/Large_Fuel_Truck.obj` faces **south** at rotation 0,
+because it was modelled facing +Z and +Z is south in OBJ8's axes. Another object may face any
+direction.
+
+Consequences, and they are permanent:
+
+- The object's true compass heading is `artistBaseHeading + rotation`, and **`artistBaseHeading` is
+  not in the file**. Which end of a mesh is "the front" is semantics, not geometry.
+- Draw the **rotated bounding box** on the map, never a nose arrow. The box is right for every
+  object; an arrow would be wrong for this truck.
+- Rotation is set **by eye against the imagery**, not by typing a heading and trusting it. Make
+  turning cheap and continuous in the UI.
+- Never invent a base heading. If one is ever needed it must be measured or curated per object.
+
 Both kinds of `OBJECT_DEF` coexist in the same file. That is the whole basis of XOP: a pack that
 references only library virtual paths **contains no assets at all** — the Paris overlay mixes both,
 and the H0 probe uses only the first kind, weighing 560 bytes.

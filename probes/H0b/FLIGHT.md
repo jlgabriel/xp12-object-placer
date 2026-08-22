@@ -62,6 +62,51 @@ four trucks and the runway in frame, answers the question.
 Then, separately: whichever way **truck A** points is where the fuel-truck model faces at rotation
 0. That number is what the catalog will have to learn per object, or normalize away.
 
-## Result
+## Result — flown 2026-08-22, X-Plane 12.4.3
 
-_(to be filled in after the flight — record what was seen, not what was expected)_
+Observed from the runway 17L threshold looking east, so north is on the left and the four trucks
+read A, B, C, D from left to right.
+
+| truck | rotation | what it showed | facing |
+|---|---|---|---|
+| A | 0 | broadside, cab on the right | **south** |
+| B | 90 | head on, windscreen and cab toward the camera | **west** |
+| C | 180 | broadside, cab on the left | **north** |
+| D | 270 | head on, tank end toward the camera | **east** |
+
+### 1. The rotation argument is degrees clockwise from north ✅
+
+south → west → north → east is 180° → 270° → 0° → 90°. Heading rises with the argument, so the
+rotation runs **clockwise**, the ordinary compass sense. All four samples agree; the reading does not
+depend on any single one.
+
+**For the application:** dragging a rotation handle clockwise on the map maps 1:1 onto a rising
+`OBJECT` argument. No sign flip anywhere.
+
+### 2. ⚠️ Rotation 0 is not north — it is however the artist left the model ✅
+
+At rotation 0 the fuel truck faces **south**, so for *this* object `heading = rotation + 180`.
+
+That is not X-Plane being strange. The rotation turns the object from its authored orientation, and
+this truck was modelled facing +Z, which is south in OBJ8's axes. A different object may be authored
+facing any direction at all.
+
+**This is the finding with consequences.** XOP cannot assume "rotation 0 means the object points
+north", and it cannot recover the true answer from the file either: which end of a mesh is "the
+front" is semantics, not geometry, and OBJ8 does not record it.
+
+What follows:
+
+- The **map footprint must be the rotated bounding box**, which is correct for any object regardless
+  of how it was authored. A "nose" arrow would be a guess, and would be wrong for this truck.
+- Rotation is therefore something the user sets **by eye against the satellite image**, not by
+  typing a compass heading and trusting it. The UI should make turning cheap and continuous.
+- If a per-object base heading is ever wanted, it has to be measured or curated per object. It is not
+  in the data. Do not invent it.
+
+### Probe design note
+
+H0 asked this same question and failed. H0b answered it in one screenshot. The difference was not
+effort, it was geometry: four samples instead of two, 90° apart instead of 45°, on a line
+**perpendicular** to the viewing direction so every sample was the same size, beside a runway that
+supplied north for free. Redundancy in the probe meant the conclusion never rested on one pixel.
