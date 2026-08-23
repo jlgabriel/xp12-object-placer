@@ -86,10 +86,12 @@ these was allowed while the simulator was up:
 - **deleting the pack folder outright**
 - opening `scenery_packs.ini` for writing
 
-So "close X-Plane before installing scenery" is not a file-locking requirement, and an installer
-that says so is telling the user to fix the wrong thing. ⏳ **Still open:** whether X-Plane rewrites
-`scenery_packs.ini` on *exit* as well as on startup. If it does, that — not locking — is the real
-reason to install with the simulator closed.
+**And it does not rewrite `scenery_packs.ini` on exit either** — checked immediately after quitting:
+same mtime, byte-identical. X-Plane writes that file at **startup only**.
+
+⇒ ★ **There is no reason to require the simulator to be closed before installing scenery.** It does
+not lock the files and it will not overwrite the line afterwards; the pack just does not appear
+until the next restart. An installer that insists on a closed simulator is inventing a rule.
 
 ## Placing an object ✅
 

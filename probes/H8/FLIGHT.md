@@ -136,6 +136,11 @@ from a clean before/after rather than from the middle of an unrelated scare:
 + SCENERY_PACK Custom Scenery/XOP_H8_Ours/
 ```
 
-⏳ Still open: whether X-Plane also rewrites that file **on exit**. If it does, a line written while
-the simulator is running could be lost — which would be a real reason to install with X-Plane
-closed, unlike the locking that turned out not to happen.
+**And it does not rewrite that file on exit.** Checked immediately after quitting: same modification
+time, byte-identical. X-Plane writes `scenery_packs.ini` at **startup only**.
+
+⇒ Taken together, there is **no reason at all to require X-Plane to be closed before installing**.
+It does not hold the files, and it will not overwrite the line afterwards. The pack simply does not
+appear until the simulator is restarted, which is the ordinary way scenery works. Both halves of
+this were guesses in the installer before today, and both guesses were wrong in the cautious
+direction — which is the comfortable way to be wrong, but still wrong.
