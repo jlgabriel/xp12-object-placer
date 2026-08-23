@@ -70,10 +70,16 @@ export function runScan(
     const child = utilityProcess.fork(join(import.meta.dirname, 'scanWorker.js'), [], {
       // Hold the worker's stderr rather than letting it inherit ours. When a utility process dies
       // of something it cannot catch — V8 running out of heap, above all — the reason is printed
-      // here and nowhere else, and in a packaged app an inherited stream goes to a console nobody
-      // is watching. That is how v1.0.1 came to report a bare "exit code 5" to two users whose
-      // installations were nine times the size of any we had scanned.
-      stdio: ['ignore', 'inherit', 'pipe'],
+      // here and nowhere else. That is how v1.0.1 came to report a bare "exit code 5" to two users
+      // whose installations were nine times the size of any we had scanned.
+      //
+      // ⚠️ stdout is 'ignore', NOT 'inherit'. A packaged Windows app is a GUI subsystem binary with
+      // no console, so there is no stdout to inherit — and handing the utility process that missing
+      // handle takes the *whole application* down with an EXCEPTION_BREAKPOINT (0x80000003) partway
+      // through the scan, silently, before anything reaches the log. It never happens in
+      // development, because `electron .` is launched from a terminal and there the handle is real.
+      // The first 1.0.2 shipped that way and had to be withdrawn the same hour.
+      stdio: ['ignore', 'ignore', 'pipe'],
     });
     let settled = false;
     let stderr = '';
