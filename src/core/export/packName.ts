@@ -36,7 +36,7 @@ const RESERVED = new Set([
 const ILLEGAL = /[<>:"/\\|?*\x00-\x1f]/g;
 
 /** What a pack is called when the user has not said. */
-export const DEFAULT_PACK_NAME = 'XOP Scenery';
+export const DEFAULT_PACK_NAME = 'XP Object Placer Scenery';
 
 /** How long a name may be. Well under any filesystem limit, and long enough to be descriptive. */
 const MAX_LENGTH = 64;

@@ -47,7 +47,7 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#11151a',
-    title: `XOP ${__APP_VERSION__} — X-Plane 12 Object Placer`,
+    title: `XP Object Placer ${__APP_VERSION__}`,
     webPreferences: {
       preload: join(import.meta.dirname, '../preload/index.cjs'),
       contextIsolation: true,

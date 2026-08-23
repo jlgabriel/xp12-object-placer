@@ -235,7 +235,7 @@ export function registerIpc(): void {
       const plan = planExport({
         packName: parsed.data.packName,
         objects: parsed.data.objects.map(toPlacedObject),
-        creationAgent: `XOP ${__APP_VERSION__}`,
+        creationAgent: `XP Object Placer ${__APP_VERSION__}`,
         md5,
         ...(known ? { knownLibraryPaths: known } : {}),
       });

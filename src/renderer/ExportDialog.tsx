@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ExportResult, InstalledPack } from '../shared/api.js';
 import { groupByTile } from '../core/dsf/tile.js';
+import { DEFAULT_PACK_NAME } from '../core/export/packName.js';
 import { editorStore, useEditor } from './state/editorStore.js';
 
 /**
@@ -13,7 +14,7 @@ import { editorStore, useEditor } from './state/editorStore.js';
  */
 export function ExportDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
   const objects = useEditor((state) => state.objects);
-  const [packName, setPackName] = useState('XOP Scenery');
+  const [packName, setPackName] = useState(DEFAULT_PACK_NAME);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ExportResult | null>(null);
@@ -88,8 +89,8 @@ export function ExportDialog({ onClose }: { onClose: () => void }): React.JSX.El
           <>
             <p className="lead">
               {objects.length.toLocaleString()} object{objects.length === 1 ? '' : 's'} across{' '}
-              {tileCount} tile{tileCount === 1 ? '' : 's'}. XOP writes one file per tile into a new
-              folder in <code>Custom Scenery</code>, and adds one line to{' '}
+              {tileCount} tile{tileCount === 1 ? '' : 's'}. One file per tile goes into a new
+              folder in <code>Custom Scenery</code>, and one line into{' '}
               <code>scenery_packs.ini</code> so X-Plane loads it above other overlays.
             </p>
 
@@ -106,7 +107,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }): React.JSX.El
               />
             </label>
             <p className="hint">
-              This becomes the folder name. XOP never overwrites a folder it did not make.
+              This becomes the folder name. XP Object Placer never overwrites a folder it did not make.
             </p>
           </>
         )}
@@ -197,7 +198,7 @@ function InstalledPacks({
 
   return (
     <div className="installed">
-      <h3>Packs XOP has installed here</h3>
+      <h3>Packs installed here</h3>
       {packs.length === 0 ? (
         <p className="note">None yet.</p>
       ) : (

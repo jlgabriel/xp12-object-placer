@@ -77,7 +77,7 @@ export function App(): React.JSX.Element {
   return (
     <div className="app">
       <header>
-        <strong>XOP</strong>
+        <strong>XP Object Placer</strong>
         <span className="version">{version}</span>
         {installation && (
           <span className="installation" title={installation.path}>
@@ -162,7 +162,7 @@ function NoCatalog({ onScan }: { onScan: () => void }): React.JSX.Element {
   return (
     <main className="picker">
       <h1>No catalog yet</h1>
-      <p>XOP has not read this installation&rsquo;s libraries. It takes about fifteen seconds.</p>
+      <p>XP Object Placer has not read this installation&rsquo;s libraries. It takes about fifteen seconds.</p>
       <button className="browse" onClick={onScan}>
         Scan the libraries
       </button>

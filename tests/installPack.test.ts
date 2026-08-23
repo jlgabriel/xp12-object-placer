@@ -102,7 +102,7 @@ describe('installPack', () => {
     writeFileSync(join(theirs, 'precious.dsf'), 'not ours');
 
     expect(() => installPack(root, plan(), '0.1.0')).toThrow(InstallError);
-    expect(() => installPack(root, plan(), '0.1.0')).toThrow(/was not made by XOP/);
+    expect(() => installPack(root, plan(), '0.1.0')).toThrow(/was not made by XP Object Placer/);
     expect(readFileSync(join(theirs, 'precious.dsf'), 'utf8')).toBe('not ours');
     // And nothing was written to the ini either — a refusal has to be a whole refusal.
     expect(readIni(root)).toBe(INI);
@@ -214,7 +214,7 @@ describe('uninstallPack', () => {
     const root = installation();
     const theirs = join(root, 'Custom Scenery', 'Paris');
     mkdirSync(theirs, { recursive: true });
-    expect(() => uninstallPack(root, 'Paris')).toThrow(/was not made by XOP/);
+    expect(() => uninstallPack(root, 'Paris')).toThrow(/was not made by XP Object Placer/);
     expect(existsSync(theirs)).toBe(true);
   });
 

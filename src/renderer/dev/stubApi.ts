@@ -7,6 +7,7 @@ import type {
   XopApi,
 } from '../../shared/api.js';
 import type { GroundBox } from '../../core/model.js';
+import { DEFAULT_PACK_NAME } from '../../core/export/packName.js';
 
 /**
  * A believable `window.xop` for the browser harness.
@@ -176,11 +177,11 @@ export function installStubApi(state: StubState): void {
       // the refusal that matters most in this dialog: a folder XOP did not make is never overwritten.
       if (/paris/i.test(request.packName)) {
         throw new Error(
-          '"X-Plane Landmarks - Paris" already exists in Custom Scenery and was not made by XOP. ' +
+          '"X-Plane Landmarks - Paris" already exists in Custom Scenery and was not made by XP Object Placer. ' +
             'Choose another name, or move that folder out of the way first.',
         );
       }
-      const packFolder = request.packName.trim() || 'XOP Scenery';
+      const packFolder = request.packName.trim() || DEFAULT_PACK_NAME;
       // Counted from what was actually asked for, not hard-coded. A stub that contradicts itself
       // teaches the wrong thing about the screen it is standing in for, and this harness has
       // already caught one piece of text that lied.

@@ -131,7 +131,7 @@ export function installPack(
     // Somebody else's scenery, or a folder made by hand. Overwriting it because the names happen
     // to collide would be the single worst thing this application could do.
     throw new InstallError(
-      `"${plan.packFolder}" already exists in Custom Scenery and was not made by XOP. ` +
+      `"${plan.packFolder}" already exists in Custom Scenery and was not made by XP Object Placer. ` +
         'Choose another name, or move that folder out of the way first.',
     );
   }
@@ -198,7 +198,7 @@ function writeIniLine(customScenery: string, plan: ExportPlan): IniWrite {
       placement: 'appended',
       changed: false,
       warnings: [
-        `There is no ${INI_NAME} yet, so XOP did not write one. X-Plane will create it and find the pack by itself — at the bottom of the list. Start X-Plane once, then export again to move the pack up to the overlay tier.`,
+        `There is no ${INI_NAME} yet, so XP Object Placer did not create one. X-Plane will create it and find the pack by itself — at the bottom of the list. Start X-Plane once, then export again to move the pack up to the overlay tier.`,
       ],
     };
   }
@@ -214,7 +214,7 @@ function writeIniLine(customScenery: string, plan: ExportPlan): IniWrite {
       warnings:
         edit.placement === 'disabled-by-user'
           ? [
-              `${INI_NAME} lists this pack as disabled. XOP left that alone — switch it back on there when you want to see it.`,
+              `${INI_NAME} lists this pack as disabled. That was left alone — switch it back on there when you want to see it.`,
             ]
           : [],
     };
@@ -266,7 +266,7 @@ export function uninstallPack(installation: string, packFolder: string): Uninsta
   if (existsSync(packRoot)) {
     if (readPackManifest(packRoot) === null) {
       throw new InstallError(
-        `"${packFolder}" in Custom Scenery was not made by XOP, so XOP will not delete it.`,
+        `"${packFolder}" in Custom Scenery was not made by XP Object Placer, so it will not be deleted.`,
       );
     }
     try {

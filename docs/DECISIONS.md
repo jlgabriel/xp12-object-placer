@@ -62,10 +62,35 @@ GPL code cannot be relicensed by copying it.
 
 ---
 
-## D5 — Repository: `xp12-object-placer`, private until it works (2026-08-22)
+## D5 — Named **XP Object Placer**; repository `xp12-object-placer`, private until it works (2026-08-22)
 
-**Why the name:** follows the author's existing `<sim>-<what>` pattern (`afs4-poi-creator`), and
-"object placer" is X-Plane vocabulary that promises exactly what D2 allows — no more.
+The product is **XP Object Placer**. `XOP` is the short form and stays in the code — IPC channels,
+the pack manifest, CSS classes, these docs — where it remains an accurate acronym. The repository
+name is unchanged: it already follows the author's `<sim>-<what>` pattern (`afs4-poi-creator`).
+
+**Why this name:** it *is* the search query. This project has no community to spread it by word of
+mouth — that was stated as a fact about the X-Plane ecosystem before a line was written — so the
+name has to be findable by someone who has never heard of it, and what that person types is
+"x-plane object placer". A coined name has to be told to you by somebody first; a description is
+found on its own. "Object placer" is also established vocabulary everywhere else — FSX had an
+Object Placement Tool, Blender and Godot have theirs — while in X-Plane the slot is empty: WED is a
+full airport editor, OverlayEditor is abandoned. And it promises exactly what D2 allows, no more.
+
+**Why `XP` and not `X-Plane`:** X-Plane is Laminar's trademark. The ecosystem convention is
+"for X-Plane" in the description, not the trademark inside a product name.
+
+**Why "Scenery" is not in the name:** in X-Plane, *scenery* names the content, never the tool — the
+folder is `Custom Scenery`, the forum category is Scenery Packages, and developers sign their
+products that way. No tool in the ecosystem carries the word. It does have a place, though: the
+default pack this app installs is called "XP Object Placer Scenery". That is content, which is
+where the convention wants it.
+
+**Considered and rejected:** `XPlace` — one letter from
+[xPlaces](https://forums.x-plane.org/files/file/70777-xplaces), a scenery plugin that puts pins on
+the world; the app would lose every search to it. `XPScatter` — taken, and "scatter" promises
+procedural placement, which this is not. `XPProps` — in a flight simulator, props are propellers.
+`Diorama`, `Maquette`, `Stipple` — coined names, and a coined name needs the word of mouth
+this project does not have.
 
 **Why private:** PCT opened publicly because it had a reviewer (ApfelFlieger on the Aerofly forum)
 whose feedback drove several releases. The X-Plane community is not expected to play that role here,
@@ -199,3 +224,30 @@ DSFTool wrote side by side in the simulator with a positive control between them
   is 1.7 m, and it would be invisible in a test and obvious in the simulator.
 - Both writers validate through the same `assertPlaceable`, so they can never disagree about what
   they refuse.
+
+---
+
+## D11 — The first public release is 1.0.0 (2026-08-22)
+
+There will be no public 0.x. The first version anyone can install is **1.0.0**.
+
+**Why:** the 0.x phase already happened, in private and on the sister project. PCT learned its
+lessons in public across a dozen releases; XOP has been built on those lessons since its first
+commit — pure core before UI, the format confirmed in the simulator before the UI existed, the
+privileged layer reviewed early, docs written against the code. D5 already keeps this repository
+private until it is worth installing, so the version number should say the same thing the release
+does: this is finished work, not an experiment asking for the patience of users who are not there.
+
+**What that costs.** 1.0 is a promise rather than a number, and three things have to be true before
+the tag that are not true today:
+
+- **A layout has to survive closing the window.** Placed objects live only in the renderer store.
+  Settings persist; the work does not. Place forty objects, close the app, and they are gone — and
+  there is no way back in either, because XOP writes DSF and does not read it. Nothing in the
+  milestone queue covers this, which is exactly why fixing the target version was worth doing now.
+- **Thumbnails (H4).** Choosing among 3 837 objects by name is work, not browsing.
+- **The pack manifest and the ini line become contract.** After 1.0, `xop-pack.json` and the shape
+  of the line written into `scenery_packs.ini` cannot change without an upgrade path: a pack
+  installed by 1.0 must still be removable by 1.1.
+
+`package.json` stays at `0.0.0` until the release commit.

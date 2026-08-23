@@ -1,4 +1,4 @@
-# XOP — X-Plane 12 Object Placer
+# XP Object Placer
 
 Place scenery objects on a map, geographically, and get an installable X-Plane 12 overlay.
 
@@ -6,20 +6,22 @@ Pick a spot anywhere on Earth — an airport apron, a city block, a ridge in the
 Browse the objects your X-Plane installation already has. Drop them on a satellite map, rotate them,
 duplicate them, line them up. Export a Custom Scenery pack.
 
+*Short form, in the code and in these docs: **XOP**.*
+
 ## What it is not
 
-**XOP does not build airports.** No `apt.dat`, no runways, no taxiways, no parking, no ICAO codes.
-[WED](https://developer.x-plane.com/tools/worldeditor/) already builds airports and it is excellent
-at it. XOP does one thing WED makes laborious: putting objects on the ground, fast, by looking at a
-map.
+**XP Object Placer does not build airports.** No `apt.dat`, no runways, no taxiways, no parking, no
+ICAO codes. [WED](https://developer.x-plane.com/tools/worldeditor/) already builds airports and it
+is excellent at it. XOP does one thing WED makes laborious: putting objects on the ground, fast, by
+looking at a map.
 
 Everything XOP produces is an **overlay** — it sits on top of whatever scenery is already there,
 default or custom.
 
 ## Status
 
-Early, and nothing to install yet — but the chain from *pick an object* to *see it in the right
-place on a map* is closed.
+Early, and nothing to install yet — but the chain is closed end to end, and the simulator has loaded
+a pack written entirely by XOP.
 
 The window opens on your X-Plane installation, reads its libraries, and gives you the objects it
 actually has. Pick one, click the map, and it lands there: drawn as its real footprint, turned by
@@ -32,10 +34,10 @@ written by XOP itself, with no external tool involved — and adds its own line 
 overwrites a folder it did not make, and it can take a pack back out again: the folder *and* the
 line.
 
-**One thing is not confirmed yet.** The DSF encoder is checked against byte sequences from a file
-X-Plane has flown, and DSFTool reads back what we write — but a pack written entirely by XOP has not
-yet been loaded by the simulator itself. [`probes/H8`](probes/H8/FLIGHT.md) is built and waiting for
-a flight; until it is flown, treat this as promising rather than proven.
+**Flown, and confirmed in the simulator.** [`probes/H8`](probes/H8/FLIGHT.md) put a pack written
+entirely by XOP next to a DSFTool-compiled control, in the same place, on the same flight: both
+loaded, neither drew a warning, and the objects stood where they had been placed. That is what
+settles [D10](docs/DECISIONS.md) — DSFTool is not a dependency and never will be.
 
 Thumbnails are still missing.
 
@@ -56,9 +58,9 @@ what is only specified.
 
 ## Zero assets
 
-XOP never redistributes Laminar content. It reads the libraries and objects **already installed on
-your machine**, and any thumbnails it generates are built locally, from your own installation, into
-a local cache. Nothing from X-Plane ships inside XOP.
+XP Object Placer never redistributes Laminar content. It reads the libraries and objects **already
+installed on your machine**, and any thumbnails it generates are built locally, from your own
+installation, into a local cache. Nothing from X-Plane ships inside XOP.
 
 ## Sister project
 
