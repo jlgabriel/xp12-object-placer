@@ -14,6 +14,11 @@ on:
   push:
     tags:
       - "v*"
+  # Build the installers without committing to a version. A packaging change — signing, targets,
+  # anything that only exists in the artifact — cannot be verified from the source, and finding out
+  # after the tag means burning a version number to learn the fix did not work. Run this from the
+  # Actions tab, download the artifact, try it, then tag.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -65,6 +70,9 @@ jobs:
     name: draft GitHub Release
     needs: build
     runs-on: ubuntu-latest
+    # Only a tag makes a release. A manual run stops after the artifacts, which is the whole point
+    # of it — gh release create against a branch name would make a release called "main".
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Download installers
         uses: actions/download-artifact@v7

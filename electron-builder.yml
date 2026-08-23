@@ -45,7 +45,25 @@ portable:
 
 # macOS builds have to be produced on a Mac; a .dmg cannot be made from Windows. Both architectures,
 # so Apple silicon and Intel are covered.
+#
+# ⚠️ `identity: "-"` is not cosmetic, and leaving it out is what broke v1.0.0 on Apple silicon.
+# electron-builder's own documentation is explicit: with no identity set it searches the keychain,
+# and "if none is found, signing is skipped for all architectures — there is no automatic ad-hoc
+# fallback". The CI runner has no certificate, so the bundle shipped unsigned — while the
+# Electron.framework inside it stayed signed by somebody else. A bundle whose seal does not verify
+# is not "an unidentified developer" to macOS, it is **damaged**, and that dialog offers exactly one
+# button: Move to Trash. There is no right-click-Open past it and redownloading cannot help, which
+# is what the first Mac user to try it reported, twice.
+#
+# Ad-hoc signing does not make us trusted — the app is still unnotarized and still needs the user to
+# allow it once — but it makes the app *coherent*, which is the difference between a door with a
+# lock and a door that is nailed shut.
+#
+# hardenedRuntime must go off with it: hardened runtime enforces library validation, which rejects a
+# pre-signed framework carrying a different Team ID. It buys nothing without notarization anyway.
 mac:
+  identity: "-"
+  hardenedRuntime: false
   target:
     - target: dmg
       arch: [arm64, x64]

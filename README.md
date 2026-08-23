@@ -32,10 +32,18 @@ Needs **X-Plane 12**. It is not compatible with X-Plane 11, which organises its 
 differently.
 
 > **The builds are not signed**, because a certificate costs money every year and nobody has asked
-> for this yet. Windows SmartScreen will say "unrecognised app": *More info* → *Run anyway*. macOS
-> will say the developer cannot be verified: right-click the app → *Open* → *Open*. If you would
-> rather not, the source is right here and `npm install && npm run build:win` produces the same
-> installer on your own machine.
+> for this yet. If you would rather not trust a binary, the source is right here and
+> `npm install && npm run build:win` — or `build:mac`, `build:linux` — produces the same installer
+> on your own machine.
+>
+> - **Windows.** SmartScreen says "unrecognised app": *More info* → *Run anyway*.
+> - **macOS.** The app is ad-hoc signed but not notarized, so the first launch is refused. Drag it
+>   to *Applications*, try to open it once, then go to *System Settings → Privacy & Security*,
+>   scroll to the bottom, and press *Open Anyway*. On macOS 14 and earlier, right-clicking the app
+>   and choosing *Open* works too — Apple removed that shortcut in macOS 15.
+> - **macOS, if it says the app is *damaged*.** That is **v1.0.0**, which shipped unsigned by
+>   mistake; there is no way past that dialog. Download 1.0.1 or newer. To rescue a copy you already
+>   have: `xattr -cr "/Applications/XP Object Placer.app"`.
 
 Only Windows has been run in anger. The macOS and Linux builds are made from the same source and
 the code knows where X-Plane keeps its records on each system, but nobody has yet used them for a
