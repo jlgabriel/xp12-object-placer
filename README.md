@@ -39,6 +39,12 @@ entirely by XOP next to a DSFTool-compiled control, in the same place, on the sa
 loaded, neither drew a warning, and the objects stood where they had been placed. That is what
 settles [D10](docs/DECISIONS.md) — DSFTool is not a dependency and never will be.
 
+Work is saved as a project: **New, Open, Save, Save As**, a `.xop` file you can copy, rename or
+send to somebody else. The title bar carries a bullet while there is unsaved work, and closing the
+window with work in it asks first. Every exported pack also contains a copy of the project, so an
+installed pack can be reopened and edited — XOP writes DSF and does not read it, so without that
+copy a pack would be a dead end.
+
 Thumbnails are still missing.
 
 The data layer also runs headless:

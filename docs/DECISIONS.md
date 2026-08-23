@@ -241,13 +241,44 @@ does: this is finished work, not an experiment asking for the patience of users 
 **What that costs.** 1.0 is a promise rather than a number, and three things have to be true before
 the tag that are not true today:
 
-- **A layout has to survive closing the window.** Placed objects live only in the renderer store.
-  Settings persist; the work does not. Place forty objects, close the app, and they are gone — and
-  there is no way back in either, because XOP writes DSF and does not read it. Nothing in the
-  milestone queue covers this, which is exactly why fixing the target version was worth doing now.
+- ~~**A layout has to survive closing the window.**~~ **Done (2026-08-22)** — see D12. Nothing in
+  the milestone queue had covered it, which is exactly why fixing the target version was worth
+  doing when it was.
 - **Thumbnails (H4).** Choosing among 3 837 objects by name is work, not browsing.
 - **The pack manifest and the ini line become contract.** After 1.0, `xop-pack.json` and the shape
   of the line written into `scenery_packs.ini` cannot change without an upgrade path: a pack
   installed by 1.0 must still be removable by 1.1.
 
 `package.json` stays at `0.0.0` until the release commit.
+
+---
+
+## D12 — A project is one `.xop` file, and the pack carries a copy (2026-08-22)
+
+Work is saved as a single JSON document with a `.xop` extension: New, Open, Save, Save As, an
+unsaved-work mark in the title, and a guard on closing the window.
+
+**Why a document and not a session.** Remembering the last thing you had open would have been less
+work and would have answered the original complaint — close the app, lose the objects. But it gives
+you exactly one piece of work at a time. Somebody decorating SCEL and Valparaíso has two, and
+neither can be handed to anyone else. A file can be copied, renamed, put in Dropbox and sent.
+
+**What it does not record: the installation.** Objects are named by library virtual path, the same
+string in any installation that has the library. A project opened on a machine missing one keeps
+the object and shows it as *not installed*, which the catalog and the map already know how to do.
+Discarding somebody's work because their libraries changed would be the worst reading of "safe".
+
+**The copy inside the pack.** Every exported pack contains `project.xop`. This application writes
+DSF and does not read it, so without that copy an installed pack is a dead end — the objects are in
+the simulator and there is no way back to editing them. It is emitted by `planExport` as a pack
+file like any other, so it inherits the installer's atomicity and appears in the manifest; a
+sidecar written afterwards would have had neither. `planExport` therefore takes the whole
+`Project` rather than a list of objects, which also removes the way the scenery and the copy could
+have disagreed about what was placed.
+
+**Unsaved work is tracked by subscription**, not by each action setting a flag. The action that
+forgets is the one that loses work silently, because the close guard would then release the window
+without asking. Panning the map is not an edit.
+
+**Main owns the paths**, as everywhere else: the renderer says new/open/save/save-as and never
+where. The `path` in `DocumentState` travels outward only, to be displayed.
