@@ -1,6 +1,6 @@
 {
   "name": "xp12-object-placer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Place scenery objects on a map and export an installable X-Plane 12 overlay",
   "license": "GPL-3.0-or-later",
