@@ -182,3 +182,80 @@ describe('sizeOf and belowGround', () => {
     expect(belowGround({ min: { x: 0, y: 0, z: 0 }, max: { x: 1, y: 1, z: 1 } })).toBe(0);
   });
 });
+
+describe('handing over the triangles', () => {
+  /** Four vertices with normals and UVs that are all different, so a mix-up cannot hide. */
+  const quad = [
+    `VT${T}0${T}0${T}0${T}0${T}1${T}0${T}0.10${T}0.20`,
+    `VT${T}1${T}0${T}0${T}0${T}1${T}0${T}0.30${T}0.40`,
+    `VT${T}1${T}1${T}0${T}0${T}0${T}1${T}0.50${T}0.60`,
+    `VT${T}0${T}1${T}0${T}1${T}0${T}0${T}0.70${T}0.80`,
+    `IDX10${T}0${T}1${T}2${T}0${T}2${T}3${T}0${T}0${T}0${T}0`,
+  ];
+
+  it('gives nothing back unless it was asked', () => {
+    expect(parseObj8(obj([...quad, `TRIS${T}0${T}6`])).mesh).toBeUndefined();
+  });
+
+  it('reads position, normal and texture coordinate from the right columns', () => {
+    const mesh = parseObj8(obj([...quad, `TRIS${T}0${T}6`]), { mesh: true }).mesh!;
+
+    expect([...mesh.positions.slice(0, 3)]).toEqual([0, 0, 0]);
+    expect([...mesh.positions.slice(3, 6)]).toEqual([1, 0, 0]);
+    expect([...mesh.normals.slice(0, 3)]).toEqual([0, 1, 0]);
+    expect([...mesh.normals.slice(9, 12)]).toEqual([1, 0, 0]);
+    // Float32, because that is what WebGL takes: compare with tolerance, not equality.
+    expect([...mesh.uvs.slice(0, 2)]).toEqual([expect.closeTo(0.1), expect.closeTo(0.2)]);
+    expect([...mesh.uvs.slice(6, 8)]).toEqual([expect.closeTo(0.7), expect.closeTo(0.8)]);
+    expect([...mesh.indices]).toEqual([0, 1, 2, 0, 2, 3]);
+  });
+
+  it('buffers are as long as the vertex count, every time', () => {
+    const mesh = parseObj8(obj([...quad, `TRIS${T}0${T}6`]), { mesh: true }).mesh!;
+    expect(mesh.positions.length).toBe(4 * 3);
+    expect(mesh.normals.length).toBe(4 * 3);
+    expect(mesh.uvs.length).toBe(4 * 2);
+  });
+
+  // The same rule the bounds already follow: draw what is visible up close. Including the far LOD
+  // would draw the detailed and the crude version of the object on top of each other.
+  it('takes the nearest LOD and leaves the far one', () => {
+    const mesh = parseObj8(
+      obj([
+        ...quad,
+        `ATTR_LOD${T}0${T}500`,
+        `TRIS${T}0${T}3`,
+        `ATTR_LOD${T}500${T}5000`,
+        `TRIS${T}3${T}3`,
+      ]),
+      { mesh: true },
+    ).mesh!;
+    expect([...mesh.indices]).toEqual([0, 1, 2]);
+  });
+
+  it('leaves draped ground decals out of it', () => {
+    const mesh = parseObj8(
+      obj([...quad, `TRIS${T}0${T}3`, 'ATTR_draped', `TRIS${T}3${T}3`]),
+      { mesh: true },
+    ).mesh!;
+    expect([...mesh.indices]).toEqual([0, 1, 2]);
+  });
+
+  // A hand-edited object can name a range that is not there. Passing it through gives WebGL a
+  // buffer of NaN and a silently black thumbnail — wrong, but looking deliberate.
+  it('drops a triangle range that runs past the end of the indices', () => {
+    const mesh = parseObj8(obj([...quad, `TRIS${T}0${T}3`, `TRIS${T}8${T}6`]), { mesh: true }).mesh!;
+    expect([...mesh.indices]).toEqual([0, 1, 2]);
+    expect(mesh.indices.every(Number.isFinite)).toBe(true);
+  });
+
+  it('pads a short VT line rather than producing a buffer WebGL will refuse', () => {
+    const short = parseObj8(obj([`VT${T}0${T}0${T}0`, `IDX${T}0`, `TRIS${T}0${T}0`]), {
+      mesh: true,
+    }).mesh!;
+    expect(short.normals.length).toBe(3);
+    expect(short.uvs.length).toBe(2);
+    expect([...short.normals].every(Number.isFinite)).toBe(true);
+    expect([...short.uvs].every(Number.isFinite)).toBe(true);
+  });
+});

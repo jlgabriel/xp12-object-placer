@@ -34,6 +34,30 @@ export interface Obj8LodRange {
   readonly far: number;
 }
 
+/**
+ * The triangles themselves, for drawing.
+ *
+ * Opt-in, because the catalog scanner parses 3 706 objects to measure them and has no use for a
+ * single vertex normal. Asking for this is what a thumbnail does, one object at a time.
+ *
+ * Indices cover the **nearest LOD only**, the same set the bounds are taken over — see the ATTR_LOD
+ * note below. Positions cover every `VT` in the file, including vertices only the far LODs use:
+ * they are cheap to upload, and skipping them would mean renumbering every index.
+ */
+export interface Obj8Mesh {
+  /** x, y, z per vertex. X east, Y up, Z south, in metres. */
+  readonly positions: Float32Array;
+  readonly normals: Float32Array;
+  /** s, t per vertex. */
+  readonly uvs: Float32Array;
+  readonly indices: Uint32Array;
+}
+
+export interface Obj8ParseOptions {
+  /** Collect the triangles as well as measure them. Off by default. */
+  readonly mesh?: boolean;
+}
+
 export interface Obj8Geometry {
   /** Every `VT` record in the file, across all LODs. */
   readonly vertexCount: number;
@@ -49,6 +73,8 @@ export interface Obj8Geometry {
   readonly lods: readonly Obj8LodRange[];
   readonly textures: Obj8Textures;
   readonly hasAnimation: boolean;
+  /** Present only when `{ mesh: true }` was asked for. */
+  readonly mesh?: Obj8Mesh;
 }
 
 export class Obj8ParseError extends Error {}
@@ -96,7 +122,8 @@ interface Range {
   readonly count: number;
 }
 
-export function parseObj8(text: string): Obj8Geometry {
+export function parseObj8(text: string, options: Obj8ParseOptions = {}): Obj8Geometry {
+  const wantMesh = options.mesh === true;
   const lines = text.split(LINE_BREAK);
 
   // Header: "I" or "A", then the version, then OBJ. Blank lines and comments may sit between them.
@@ -114,6 +141,10 @@ export function parseObj8(text: string): Obj8Geometry {
   const vx: number[] = [];
   const vy: number[] = [];
   const vz: number[] = [];
+  // Only filled when a mesh was asked for. Five more numbers per vertex across a whole library
+  // scan is work nobody wanted done.
+  const normals: number[] = [];
+  const uvs: number[] = [];
   const indices: number[] = [];
   const lods: Obj8LodRange[] = [];
   const solid: Range[] = [];
@@ -136,6 +167,10 @@ export function parseObj8(text: string): Obj8Geometry {
       vx.push(Number(f[1]));
       vy.push(Number(f[2]));
       vz.push(Number(f[3]));
+      if (wantMesh) {
+        normals.push(Number(f[4]), Number(f[5]), Number(f[6]));
+        uvs.push(Number(f[7]), Number(f[8]));
+      }
       continue;
     }
     if (line.startsWith('IDX')) {
@@ -197,6 +232,56 @@ export function parseObj8(text: string): Obj8Geometry {
     lods,
     textures,
     hasAnimation,
+    ...(wantMesh ? { mesh: meshOf(solid, indices, vx, vy, vz, normals, uvs) } : {}),
+  };
+}
+
+/**
+ * Pack the nearest LOD's triangles into typed arrays.
+ *
+ * A `TRIS` range that runs past the end of the index list is dropped rather than trusted. It
+ * happens in objects that were edited by hand, and the alternative is a buffer full of `NaN`
+ * indices that WebGL turns into a silent black square — a thumbnail that is wrong but looks
+ * deliberate.
+ */
+function meshOf(
+  ranges: readonly Range[],
+  indices: readonly number[],
+  vx: readonly number[],
+  vy: readonly number[],
+  vz: readonly number[],
+  normals: readonly number[],
+  uvs: readonly number[],
+): Obj8Mesh {
+  const kept: number[] = [];
+  for (const range of ranges) {
+    if (range.offset < 0 || range.offset + range.count > indices.length) continue;
+    for (let i = 0; i < range.count; i += 1) {
+      const index = indices[range.offset + i]!;
+      if (index >= 0 && index < vx.length) kept.push(index);
+    }
+  }
+
+  const positions = new Float32Array(vx.length * 3);
+  for (let i = 0; i < vx.length; i += 1) {
+    positions[i * 3] = vx[i]!;
+    positions[i * 3 + 1] = vy[i]!;
+    positions[i * 3 + 2] = vz[i]!;
+  }
+
+  // A file can carry fewer normals or UVs than vertices if a VT line was short. Padding with zero
+  // keeps the buffers the length WebGL requires; a lit triangle with a zero normal reads as flat,
+  // which is a better failure than a draw call that never happens.
+  const normalArray = new Float32Array(vx.length * 3);
+  normalArray.set(normals.slice(0, vx.length * 3).map((n) => (Number.isFinite(n) ? n : 0)));
+  const uvArray = new Float32Array(vx.length * 2);
+  uvArray.set(uvs.slice(0, vx.length * 2).map((n) => (Number.isFinite(n) ? n : 0)));
+
+  return {
+    positions,
+    normals: normalArray,
+    uvs: uvArray,
+    indices: Uint32Array.from(kept),
   };
 }
 
