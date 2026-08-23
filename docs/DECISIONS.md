@@ -245,9 +245,7 @@ the tag that are not true today:
   the milestone queue had covered it, which is exactly why fixing the target version was worth
   doing when it was.
 - ~~**Thumbnails (H4).**~~ **Done (2026-08-22)** — see D13.
-- **The pack manifest and the ini line become contract.** After 1.0, `xop-pack.json` and the shape
-  of the line written into `scenery_packs.ini` cannot change without an upgrade path: a pack
-  installed by 1.0 must still be removable by 1.1.
+- ~~**The pack manifest and the ini line become contract.**~~ **Done (2026-08-22)** — see D14.
 
 `package.json` stays at `0.0.0` until the release commit.
 
@@ -321,3 +319,30 @@ work belongs in the utilityProcess the scanner already uses.
 `.png`→`.dds` substitution, without which 93% of the library renders grey; and the v flip in the
 shader, without which every object samples the mirror image of its own atlas — silently, and
 plausibly enough to look intentional.
+
+---
+
+## D14 — What an installed pack promises, from 1.0 onwards (2026-08-22)
+
+An exported pack is written into somebody's simulator and stays there, outliving the build that
+wrote it and probably their memory of making it. Two things about it are frozen:
+
+**A folder is ours if and only if it contains `xop-pack.json` with a non-empty `packName`.** That
+test never gets stricter. Requiring another field later would orphan every pack already installed —
+the app would refuse to remove its own work and tell the user it belonged to somebody else.
+
+**The line is `SCENERY_PACK Custom Scenery/<folder>/`**, relative, never absolute.
+
+Reading is generous in both directions. Unknown fields are ignored, a `manifest` version from the
+future still means the pack is ours, and a pre-1.0 pack with no version field at all is read as
+version 1. Refusing to recognise a newer build's pack would leave a folder nobody can uninstall
+without a file manager, which is the worst available reading of "I do not recognise this".
+
+**Reading is strict about exactly one thing**, and it had to be fixed to say this at all. The old
+reader returned whatever `JSON.parse` produced, so a file containing `{}` — or `0`, or `"hello"` —
+marked a folder as ours. This application *deletes* folders that are ours. Ownership is the most
+dangerous judgement it makes, and it now requires the one field that carries the claim.
+
+`tests/packContract.test.ts` holds all of this to **literal fixtures**, not to whatever the code
+currently produces. A test that builds its expectation by calling the code under test passes
+happily through a change of format, which is the change it exists to catch.

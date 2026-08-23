@@ -44,16 +44,34 @@ const INI_NAME = 'scenery_packs.ini';
 /**
  * The file that makes a folder recognisably ours.
  *
- * It is what lets a second export overwrite the first without asking, while a folder XOP did not
- * create is refused. It doubles as the uninstall manifest: everything that was written is listed,
- * so removal takes out what was put there rather than whatever happens to be in the folder now.
+ * It is what lets a second export overwrite the first without asking, while a folder this app did
+ * not create is refused.
+ *
+ * ⚠️⚠️ **This file is a contract as of 1.0.** It is written into the user's simulator and outlives
+ * the version that wrote it, so a pack installed by 1.0 has to stay removable by every version
+ * after. Two promises follow from that, and `tests/packContract.test.ts` holds both to a literal
+ * fixture rather than to whatever the code happens to produce:
+ *
+ * 1. A folder is ours **iff** it contains `xop-pack.json` with a non-empty `packName`. That test
+ *    never gets stricter. Adding a required field later would orphan every pack already installed:
+ *    the app would refuse to remove its own work and tell the user it was somebody else's.
+ * 2. Unknown fields are ignored, and an unknown `manifest` version still means the pack is ours.
+ *    A newer build's pack must be removable by an older one — the alternative is a folder nobody
+ *    can uninstall without a file manager.
  */
 const MANIFEST_NAME = 'xop-pack.json';
 
+/** The format version this build writes. Absent in pre-1.0 packs, which are otherwise identical. */
+const MANIFEST_VERSION = 1;
+
 export interface PackManifest {
+  /** Format version of this file, not of the application. See MANIFEST_VERSION. */
+  readonly manifest: number;
+  /** The version that wrote it, for support. Deliberately not the format version. */
   readonly xop: string;
   readonly packName: string;
   readonly writtenAt: string;
+  /** Everything written, pack-relative. Informational: uninstall removes the folder. */
   readonly files: readonly string[];
 }
 
@@ -99,12 +117,37 @@ function packRootOf(customScenery: string, packFolder: string): string {
   return root;
 }
 
+/**
+ * Read the manifest, or null when this folder is not ours.
+ *
+ * Deliberately generous about everything except the one field that decides ownership. The previous
+ * version of this returned whatever `JSON.parse` produced, so a file containing `{}` — or `0`, or
+ * `"hello"` — marked the folder as ours, and this application deletes folders that are ours.
+ *
+ * Just as deliberately, it does **not** refuse a `manifest` version it has never heard of. A pack
+ * written by a later build is still this application's pack, and being unable to uninstall it would
+ * be the worst possible reading of "I do not recognise this".
+ */
 export function readPackManifest(packRoot: string): PackManifest | null {
+  let parsed: unknown;
   try {
-    return JSON.parse(readFileSync(join(packRoot, MANIFEST_NAME), 'utf8')) as PackManifest;
+    parsed = JSON.parse(readFileSync(join(packRoot, MANIFEST_NAME), 'utf8'));
   } catch {
     return null;
   }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+
+  const raw = parsed as Record<string, unknown>;
+  if (typeof raw.packName !== 'string' || raw.packName === '') return null;
+
+  return {
+    // Pre-1.0 packs have no version field and are the same shape, so absence means 1.
+    manifest: typeof raw.manifest === 'number' ? raw.manifest : MANIFEST_VERSION,
+    xop: typeof raw.xop === 'string' ? raw.xop : 'unknown',
+    packName: raw.packName,
+    writtenAt: typeof raw.writtenAt === 'string' ? raw.writtenAt : '',
+    files: Array.isArray(raw.files) ? raw.files.filter((f): f is string => typeof f === 'string') : [],
+  };
 }
 
 export interface InstallResult {
@@ -150,6 +193,7 @@ export function installPack(
     }
 
     const manifest: PackManifest = {
+      manifest: MANIFEST_VERSION,
       xop: version,
       packName: plan.packFolder,
       writtenAt: new Date().toISOString(),
