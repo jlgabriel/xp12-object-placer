@@ -12,3 +12,7 @@ scratch/
 # Local machine paths, never committed
 .env
 .env.local
+
+# Sample geometry built from the user's own X-Plane installation for the thumbnail harness.
+# Laminar content: local only, never committed.
+*.local.json

@@ -18,7 +18,8 @@
     "test:watch": "vitest",
     "check": "npm run typecheck && npm run test",
     "scan": "tsx src/cli/scan.ts",
-    "preview:ui": "vite --config vite.preview.mts"
+    "preview:ui": "vite --config vite.preview.mts",
+    "samples": "tsx src/cli/thumbnailSamples.ts"
   },
   "devDependencies": {
     "@types/leaflet": "^1.9.21",
