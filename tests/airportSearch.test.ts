@@ -20,13 +20,13 @@ const AIRPORTS: readonly Airport[] = [
 
 const INDEX = buildAirportIndex(AIRPORTS);
 const found = (query: string, limit?: number): string[] =>
-  searchAirports(INDEX, query, limit).map((airport) => airport.id);
+  searchAirports(INDEX, query, limit).shown.map((airport) => airport.id);
 
 describe('searching airports', () => {
   it('answers nothing at all until something is typed', () => {
     expect(found('')).toEqual([]);
     expect(found('   ')).toEqual([]);
-    expect(searchAirports(EMPTY_AIRPORT_INDEX, 'SCEL')).toEqual([]);
+    expect(searchAirports(EMPTY_AIRPORT_INDEX, 'SCEL')).toEqual({ shown: [], matches: 0 });
   });
 
   it('puts an exact code first, however many others share its prefix', () => {
@@ -85,9 +85,9 @@ describe('searching airports', () => {
       { id: '8422', icao: 'LFPR', name: 'Orange Plan de Dieu', lat: 44.18, lon: 4.92 },
       { id: 'L00', name: 'Rosamond Skypark', lat: 34.87, lon: -118.21 },
     ]);
-    expect(searchAirports(index, 'L').map(airportCode)).toEqual(['L00', 'LFPR']);
+    expect(searchAirports(index, 'L').shown.map(airportCode)).toEqual(['L00', 'LFPR']);
     // And it is still findable by the identifier the file gives it.
-    expect(searchAirports(index, '8422').map(airportCode)).toEqual(['LFPR']);
+    expect(searchAirports(index, '8422').shown.map(airportCode)).toEqual(['LFPR']);
   });
 
   /**
@@ -99,8 +99,15 @@ describe('searching airports', () => {
     expect(found('L')).toEqual(['LFPG', 'LFPO', 'LSZH']);
   });
 
-  it('stops at the limit', () => {
-    expect(found('S', 2)).toHaveLength(2);
+  /**
+   * The limit is what the list shows, not what it found. A dropdown that stops at twenty without
+   * saying so reads as the whole answer, and against a real installation "SC" matches 902.
+   */
+  it('stops at the limit, and says how many there really were', () => {
+    const result = searchAirports(INDEX, 'S', 2);
+    expect(result.shown).toHaveLength(2);
+    expect(result.matches).toBe(found('S').length);
+    expect(result.matches).toBeGreaterThan(2);
   });
 
   it('shows the declared ICAO code in preference to a synthetic identifier', () => {

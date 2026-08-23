@@ -92,6 +92,19 @@ export const EMPTY_AIRPORT_INDEX: AirportIndex = {
  */
 const MIN_NAME_QUERY = 2;
 
+export interface AirportSearchResult {
+  /** The best matches, at most `limit` of them. */
+  readonly shown: readonly Airport[];
+  /**
+   * How many matched altogether, before the limit.
+   *
+   * Returned rather than left implicit because a list that quietly stops at twenty looks like the
+   * whole answer. "SC" matches 902 airports in a real installation, and a dropdown showing three of
+   * them with nothing to say so reads as a tool that has lost most of the world.
+   */
+  readonly matches: number;
+}
+
 /**
  * Rank airports for a typeahead query. Case- and accent-insensitive; tiers, best first:
  *
@@ -102,9 +115,13 @@ const MIN_NAME_QUERY = 2;
  * Within a tier the order is alphabetical, so the list does not reshuffle for reasons the person
  * reading it cannot see. A blank query returns nothing and the dropdown stays shut.
  */
-export function searchAirports(index: AirportIndex, query: string, limit = 20): Airport[] {
+export function searchAirports(
+  index: AirportIndex,
+  query: string,
+  limit = 20,
+): AirportSearchResult {
   const q = foldForSearch(query.trim());
-  if (q === '') return [];
+  if (q === '') return { shown: [], matches: 0 };
 
   const { airports, codes, altCodes, names } = index;
   const exact: number[] = [];
@@ -129,7 +146,10 @@ export function searchAirports(index: AirportIndex, query: string, limit = 20): 
   prefix.sort(order(codes));
   named.sort(order(names));
 
-  return [...exact, ...prefix, ...named].slice(0, limit).map((i) => airports[i]!);
+  return {
+    shown: [...exact, ...prefix, ...named].slice(0, limit).map((i) => airports[i]!),
+    matches: exact.length + prefix.length + named.length,
+  };
 }
 
 /**

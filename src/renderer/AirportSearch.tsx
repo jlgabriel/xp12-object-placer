@@ -26,7 +26,10 @@ export function AirportSearch(): React.JSX.Element {
   const [highlight, setHighlight] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const results = useMemo(() => searchAirports(airports, query), [airports, query]);
+  const { shown: results, matches } = useMemo(
+    () => searchAirports(airports, query),
+    [airports, query],
+  );
   const showList = open && results.length > 0;
 
   const pick = (airport: Airport): void => {
@@ -105,6 +108,7 @@ export function AirportSearch(): React.JSX.Element {
           onKeyDown={onKeyDown}
         />
         {showList && (
+          <div className="airport-menu">
           <ul className="airport-list" id="xop-airport-listbox" role="listbox">
             {results.map((airport, i) => (
               <li
@@ -126,6 +130,18 @@ export function AirportSearch(): React.JSX.Element {
               </li>
             ))}
           </ul>
+            {/* What the list is not showing, and how much there was to show from. A dropdown that
+                stops at twenty without saying so reads as the whole answer — "SC" matches 902
+                airports in a real installation, and twenty of them look like a tool that has
+                mislaid most of the world. */}
+            <p className="airport-count">
+              {matches > results.length
+                ? `the first ${results.length} of ${matches.toLocaleString()} matches`
+                : `${matches.toLocaleString()} ${matches === 1 ? 'match' : 'matches'}`}
+              {' · '}
+              {airports.airports.length.toLocaleString()} airports in this installation
+            </p>
+          </div>
         )}
       </div>
     </div>

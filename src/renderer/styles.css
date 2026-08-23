@@ -511,24 +511,37 @@ button.danger:hover {
   color: var(--dim);
 }
 
-.airport-list {
+.airport-menu {
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
   /* Wider than the box: a code is four characters and a name is not, and a list of truncated
      airport names is a list you have to guess at. */
   min-width: 340px;
-  max-height: 320px;
-  overflow-y: auto;
-  margin: 0;
-  padding: 4px 0;
-  list-style: none;
   /* Above the map. Leaflet's own panes stop well below this, and the arming banner sits at 1000. */
   z-index: 1200;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 6px;
   box-shadow: 0 8px 20px #0008;
+}
+
+.airport-list {
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+}
+
+/* The footer. Scrolls with nothing — it stays put while the list above it moves. */
+.airport-count {
+  margin: 0;
+  padding: 5px 10px;
+  border-top: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .airport-option {
