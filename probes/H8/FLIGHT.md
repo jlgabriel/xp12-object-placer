@@ -99,6 +99,43 @@ itself the next time it starts.
 Remove-Item -Recurse -Force "D:\Laminar\XP12-Last-Release\X-Plane 12\Custom Scenery\XOP_H8_Ours","D:\Laminar\XP12-Last-Release\X-Plane 12\Custom Scenery\XOP_H8_Control"
 ```
 
-## Result
+## Result — flown 2026-08-22, X-Plane 12.4.3
 
-*Not yet flown.*
+**✅ YES. X-Plane loads what XOP writes.** `Log.txt`, with no error or warning anywhere near either
+file:
+
+```
+0:00:09.683 I/SCN: DSF load time: 7857 for file Custom Scenery/XOP_H8_Control/Earth nav data/-40-080/-34-071.dsf (0 tris, 0 skipped)
+0:00:09.683 I/SCN: DSF load time: 4032 for file Custom Scenery/XOP_H8_Ours/Earth nav data/-40-080/-34-071.dsf (0 tris, 0 skipped)
+```
+
+`0 tris` is expected — an object-only overlay contributes no terrain triangles. The control loaded
+too, so this is a comparison and not a lone reading.
+
+Confirmed in the view as well: three control towers in an east–west row, and the control pack's
+hangar to the north of them. Screenshot taken from 17L looking east.
+
+**Consequence: DSFTool is not a dependency, and never will be** (D10). XOP produces an installable
+scenery pack on a machine that has nothing but X-Plane on it.
+
+### Two more facts, measured because the simulator happened to be open
+
+Neither needed a flight of its own, and both were guesses in the code until now.
+
+**X-Plane does not hold `Custom Scenery` files open.** With 12.4.3 running and the pack loaded, all
+four of these were *allowed*: opening the loaded `.dsf` for writing, renaming it, renaming the pack
+folder, and deleting the pack folder outright. `scenery_packs.ini` is not locked either. The
+installer used to tell the user "close X-Plane, it holds on to these files" — a false statement,
+now corrected to name no cause it cannot support.
+
+**X-Plane appended its own two lines at startup and changed nothing else**, confirming H0's finding
+from a clean before/after rather than from the middle of an unrelated scare:
+
+```
++ SCENERY_PACK Custom Scenery/XOP_H8_Control/
++ SCENERY_PACK Custom Scenery/XOP_H8_Ours/
+```
+
+⏳ Still open: whether X-Plane also rewrites that file **on exit**. If it does, a line written while
+the simulator is running could be lost — which would be a real reason to install with X-Plane
+closed, unlike the locking that turned out not to happen.

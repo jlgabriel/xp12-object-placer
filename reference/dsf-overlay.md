@@ -75,6 +75,22 @@ The first byte-level fact, read off a real file: a binary DSF opens with the 8-b
 `XPLNEDSF`, then a little-endian `uint32` version of `1`, then the atom stream — whose first atom ID
 reads `DAEH` on disk, i.e. `HEAD` with the four bytes reversed.
 
+## X-Plane does not lock what it loads ✅
+
+**Measured 2026-08-22 with X-Plane 12.4.3 running and the pack loaded** (probe H8). Every one of
+these was allowed while the simulator was up:
+
+- opening the loaded `.dsf` for writing
+- renaming the loaded `.dsf`
+- renaming the pack folder
+- **deleting the pack folder outright**
+- opening `scenery_packs.ini` for writing
+
+So "close X-Plane before installing scenery" is not a file-locking requirement, and an installer
+that says so is telling the user to fix the wrong thing. ⏳ **Still open:** whether X-Plane rewrites
+`scenery_packs.ini` on *exit* as well as on startup. If it does, that — not locking — is the real
+reason to install with the simulator closed.
+
 ## Placing an object ✅
 
 ```

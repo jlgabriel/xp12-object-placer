@@ -60,15 +60,23 @@ export interface PackManifest {
 export class InstallError extends Error {}
 
 /**
- * X-Plane holds files in `Custom Scenery` open while it runs, so a write there can fail with the
- * simulator apparently doing nothing wrong. Guessing at the cause would be unhelpful; naming the
- * likely one, and saying what to do about it, is not.
+ * A write refused because something else has the file.
+ *
+ * ⚠️ This used to say "close X-Plane — it holds on to files in Custom Scenery while it is running",
+ * which was a guess, and **measuring it showed the guess was wrong**. With X-Plane 12.4.3 running
+ * and a pack loaded, all four of these were allowed: opening the loaded `.dsf` for writing,
+ * renaming it, renaming the pack folder, and deleting the pack folder outright. The simulator does
+ * not lock what it has read.
+ *
+ * So the branch stays — a backup, sync or antivirus tool genuinely can hold a file — but the
+ * message no longer names a cause that was measured not to happen. Telling somebody to close
+ * X-Plane when X-Plane is not the problem sends them to fix the wrong thing.
  */
 function rethrowLocked(error: unknown, what: string): never {
   const code = (error as NodeJS.ErrnoException | undefined)?.code;
   if (code === 'EBUSY' || code === 'EPERM' || code === 'EACCES') {
     throw new InstallError(
-      `${what} is in use. Close X-Plane, then try again — it holds on to files in Custom Scenery while it is running.`,
+      `${what} could not be written — another program has it open. A backup, sync or antivirus tool is the usual cause. Close it and try again.`,
     );
   }
   throw error;
