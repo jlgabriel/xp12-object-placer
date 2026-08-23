@@ -208,6 +208,30 @@ export function installStubApi(state: StubState): void {
       return doc('apron', savedTo);
     },
     markDirty: async (dirty) => ({ name: 'apron', path: savedTo, dirty }),
+
+    /**
+     * Thumbnails, stubbed as a plain box the size of the real object.
+     *
+     * Deliberately not a picture of the actual model: the harness has no installation to read one
+     * from, and a stub that invented convincing thumbnails would be the kind of lie this harness
+     * exists to avoid. A box with the object's own proportions is enough to check the layout — the
+     * row height, the alignment, what a very wide object does to a square frame — and it is
+     * obviously a stand-in. The real thing is checked in dev/thumbnails.html against real geometry.
+     */
+    getThumbnail: async () => null,
+    putThumbnail: async () => true,
+    getObjectGeometry: async (virtualPath) => {
+      const entry = STUB_ENTRIES.find((e) => e.virtualPath === virtualPath);
+      const size = entry?.size ?? { width: 4, height: 3, depth: 4 };
+      return {
+        mesh: boxMesh(size.width, size.height, size.depth),
+        bounds: {
+          min: { x: -size.width / 2, y: 0, z: -size.depth / 2 },
+          max: { x: size.width / 2, y: size.height, z: size.depth / 2 },
+        },
+        textureProblem: 'the harness has no installation to read a texture from',
+      };
+    },
     closeWindow: async () => {},
     onSaveBeforeClose: () => () => {},
 
@@ -297,4 +321,36 @@ export function installStubApi(state: StubState): void {
   };
 
   Object.defineProperty(window, 'xop', { value: api, configurable: true });
+}
+
+/** A box with its faces' normals right, so the stubbed thumbnails are lit rather than flat. */
+function boxMesh(width: number, height: number, depth: number) {
+  const x = width / 2;
+  const z = depth / 2;
+  const faces: Array<[number[], number[]]> = [
+    [[-x, 0, z, x, 0, z, x, height, z, -x, height, z], [0, 0, 1]],
+    [[x, 0, -z, -x, 0, -z, -x, height, -z, x, height, -z], [0, 0, -1]],
+    [[x, 0, z, x, 0, -z, x, height, -z, x, height, z], [1, 0, 0]],
+    [[-x, 0, -z, -x, 0, z, -x, height, z, -x, height, -z], [-1, 0, 0]],
+    [[-x, height, z, x, height, z, x, height, -z, -x, height, -z], [0, 1, 0]],
+    [[-x, 0, -z, x, 0, -z, x, 0, z, -x, 0, z], [0, -1, 0]],
+  ];
+
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+  for (const [corners, normal] of faces) {
+    const base = positions.length / 3;
+    positions.push(...corners);
+    for (let i = 0; i < 4; i += 1) normals.push(...normal);
+    uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+    indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  }
+  return {
+    positions: new Float32Array(positions),
+    normals: new Float32Array(normals),
+    uvs: new Float32Array(uvs),
+    indices: new Uint32Array(indices),
+  };
 }

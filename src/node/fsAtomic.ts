@@ -23,9 +23,12 @@ import { dirname } from 'node:path';
  * rename across filesystems is not atomic — and on Windows it is not even a rename, it is a copy
  * and a delete, which is precisely the failure mode this exists to avoid.
  */
-export function writeFileAtomic(target: string, contents: string): void {
+export function writeFileAtomic(target: string, contents: string | Uint8Array): void {
   mkdirSync(dirname(target), { recursive: true });
   const temporary = `${target}.tmp`;
-  writeFileSync(temporary, contents, 'utf8');
+  // The encoding applies to text only. Passing it alongside bytes works — Node ignores it —
+  // but saying so out loud is how the next person knows the byte path was meant.
+  if (typeof contents === 'string') writeFileSync(temporary, contents, 'utf8');
+  else writeFileSync(temporary, contents);
   renameSync(temporary, target);
 }

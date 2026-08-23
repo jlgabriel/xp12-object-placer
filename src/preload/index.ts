@@ -32,6 +32,10 @@ const api: XopApi = {
   saveProject: (project) => ipcRenderer.invoke('xop:saveProject', project),
   saveProjectAs: (project) => ipcRenderer.invoke('xop:saveProjectAs', project),
   markDirty: (dirty) => ipcRenderer.invoke('xop:markDirty', dirty),
+
+  getThumbnail: (virtualPath) => ipcRenderer.invoke('xop:getThumbnail', virtualPath),
+  getObjectGeometry: (virtualPath) => ipcRenderer.invoke('xop:getObjectGeometry', virtualPath),
+  putThumbnail: (virtualPath, png) => ipcRenderer.invoke('xop:putThumbnail', virtualPath, png),
   closeWindow: () => ipcRenderer.invoke('xop:closeWindow'),
 
   onSaveBeforeClose: (listener: () => void) => {

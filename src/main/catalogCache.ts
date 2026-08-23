@@ -6,7 +6,8 @@
  * library. So: cache keyed by installation path, rescan on demand.
  */
 
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
+import { writeFileAtomic } from '../node/fsAtomic.js';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { buildCatalog, placeableObjects } from '../core/catalog/catalog.js';
@@ -21,13 +22,43 @@ import type { GroundBox } from '../core/model.js';
  * 2: entries carry `ground`, the object's footprint rectangle. Version 1 snapshots had only a size,
  *    which cannot be turned into a footprint after the fact — the origin's place inside the box is
  *    not recoverable from width and depth.
+ * 3: a companion file records where each object's .obj lives, which is what thumbnails need. A
+ *    version 2 cache has no such file, and rebuilding one from the snapshot is not possible.
  */
-const SNAPSHOT_VERSION = 2;
+const SNAPSHOT_VERSION = 3;
 
 function cacheFile(userData: string, installation: string): string {
   // The installation path is not safe as a filename; its digest is, and it is stable.
   const digest = createHash('sha256').update(installation).digest('hex').slice(0, 16);
   return join(userData, 'catalog', `${digest}.json`);
+}
+
+/**
+ * Where each object's file is, kept beside the snapshot rather than inside it.
+ *
+ * Thumbnails need to open the `.obj`, and only main may do that. Putting these paths in the
+ * snapshot would send four hundred kilobytes of the user's own directory layout across the bridge
+ * on every launch, to a renderer that has no use for it and could not open a file anyway.
+ */
+function fileMapPath(userData: string, installation: string): string {
+  return cacheFile(userData, installation).replace(/.json$/, '.files.json');
+}
+
+/** virtual path → the .obj on disk, for the installation currently cached. Null if not scanned. */
+export function readCachedObjectFiles(
+  userData: string,
+  installation: string,
+): ReadonlyMap<string, string> | null {
+  try {
+    const raw = JSON.parse(readFileSync(fileMapPath(userData, installation), 'utf8')) as {
+      installation: string;
+      files: Record<string, string>;
+    };
+    if (raw.installation !== installation) return null;
+    return new Map(Object.entries(raw.files));
+  } catch {
+    return null;
+  }
 }
 
 export function readCachedCatalog(userData: string, installation: string): CatalogSnapshot | null {
@@ -124,11 +155,19 @@ export function scanCatalog(
     },
   };
 
-  const target = cacheFile(userData, installation);
   mkdirSync(join(userData, 'catalog'), { recursive: true });
-  const temporary = `${target}.tmp`;
-  writeFileSync(temporary, JSON.stringify(snapshot), 'utf8');
-  renameSync(temporary, target);
+
+  // The file map goes first. A snapshot present without its companion is the state that would make
+  // every thumbnail fail for a catalog that otherwise looks complete; the other way round, a stray
+  // file map, costs nothing and is overwritten by the next scan.
+  writeFileAtomic(
+    fileMapPath(userData, installation),
+    JSON.stringify({
+      installation,
+      files: Object.fromEntries([...byPath].map(([path, m]) => [path, m.measuredFile])),
+    }),
+  );
+  writeFileAtomic(cacheFile(userData, installation), JSON.stringify(snapshot));
 
   onProgress?.({ phase: 'done', done: entries.length, total: entries.length });
   return snapshot;

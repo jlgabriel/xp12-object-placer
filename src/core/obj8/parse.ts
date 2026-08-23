@@ -75,6 +75,14 @@ export interface Obj8Geometry {
   readonly hasAnimation: boolean;
   /** Present only when `{ mesh: true }` was asked for. */
   readonly mesh?: Obj8Mesh;
+  /**
+   * The draped triangles, when there are any and a mesh was asked for.
+   *
+   * Ground decals — runway markings, drains, oil stains — have **no solid geometry at all**: 476
+   * objects out of 3 706 in a real installation are nothing but this. Without it they get no
+   * thumbnail, and picking one of twenty markings by name is exactly the job a picture does best.
+   */
+  readonly drapedMesh?: Obj8Mesh;
 }
 
 export class Obj8ParseError extends Error {}
@@ -233,6 +241,9 @@ export function parseObj8(text: string, options: Obj8ParseOptions = {}): Obj8Geo
     textures,
     hasAnimation,
     ...(wantMesh ? { mesh: meshOf(solid, indices, vx, vy, vz, normals, uvs) } : {}),
+    ...(wantMesh && draped.length > 0
+      ? { drapedMesh: meshOf(draped, indices, vx, vy, vz, normals, uvs) }
+      : {}),
   };
 }
 

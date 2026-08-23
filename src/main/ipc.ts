@@ -14,7 +14,9 @@ import { createHash } from 'node:crypto';
 import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { z } from 'zod';
 import { describeInstallation, findInstallations, isInstallation } from '../node/findInstallations.js';
-import { readCachedCatalog } from './catalogCache.js';
+import { readCachedCatalog, readCachedObjectFiles } from './catalogCache.js';
+import { clearThumbnails, readThumbnail, writeThumbnail } from './thumbnailCache.js';
+import { GeometryError, readObjectGeometry } from '../node/objectGeometry.js';
 import { runScan } from './runScan.js';
 import { readSettings, writeSettings } from './settings.js';
 import { planExport } from '../core/export/planExport.js';
@@ -44,6 +46,7 @@ import {
 import type {
   CatalogSnapshot,
   DocumentState,
+  ObjectGeometry,
   ExportResult,
   Installation,
   OpenedProject,
@@ -53,6 +56,15 @@ import type {
 } from '../shared/api.js';
 
 declare const __APP_VERSION__: string;
+
+/**
+ * How much texture a thumbnail asks for.
+ *
+ * Larger than the picture, on purpose. Atlases are shared, so an object often occupies a small
+ * corner of one; asking for exactly the thumbnail's size would sample a handful of pixels for the
+ * part that actually matters.
+ */
+const TEXTURE_MIP_SIZE = 256;
 
 const SCAN_PROGRESS = 'xop:scanProgress';
 
@@ -195,12 +207,19 @@ export function registerIpc(): void {
     readCachedCatalog(userData, requireInstallation(userData)),
   );
 
-  handle('xop:rescanCatalog', (event): Promise<CatalogSnapshot> => {
+  handle('xop:rescanCatalog', async (event): Promise<CatalogSnapshot> => {
     const installation = requireInstallation(userData);
     const send = (progress: ScanProgress): void => {
       if (!event.sender.isDestroyed()) event.sender.send(SCAN_PROGRESS, progress);
     };
-    return runScan(userData, installation, send);
+    const snapshot = await runScan(userData, installation, send);
+
+    // A rescan is the moment an object can change shape, or be repainted, underneath a picture of
+    // it. Both caches go: the file map this process is holding, and the thumbnails on disk.
+    // Redrawing one costs a millisecond; a stale one costs somebody placing the wrong object.
+    objectFiles.delete(installation);
+    clearThumbnails(userData, installation);
+    return snapshot;
   });
 
   handle('xop:exportPack', (_event, raw: unknown): ExportResult => {
@@ -383,5 +402,62 @@ export function registerIpc(): void {
   // already answered that question — this channel is only reached after they did.
   handle('xop:closeWindow', (event): void => {
     BrowserWindow.fromWebContents(event.sender)?.destroy();
+  });
+
+  // ── Thumbnails ────────────────────────────────────────────────────────────
+  //
+  // The renderer draws these, because only the renderer has a GPU; main opens the files, because
+  // only main may. The renderer names an object by the virtual path the catalog gave it and never
+  // by a path of its own, and that name is checked against the scan — the same rule, for the same
+  // reason, as `selectInstallation`.
+
+  /** Loaded once per installation and kept: a scan is the only thing that changes it. */
+  const objectFiles = new Map<string, ReadonlyMap<string, string>>();
+
+  const fileForObject = (installation: string, virtualPath: string): string => {
+    let map = objectFiles.get(installation);
+    if (!map) {
+      const loaded = readCachedObjectFiles(userData, installation);
+      if (!loaded) throw new UserFacingError('this installation has not been scanned yet');
+      objectFiles.set(installation, loaded);
+      map = loaded;
+    }
+    const file = map.get(virtualPath);
+    if (file === undefined) {
+      throw new UserFacingError('that object is not in this installation’s catalog');
+    }
+    return file;
+  };
+
+  const VirtualPathSchema = z.string().min(1).max(1024);
+  const asVirtualPath = (raw: unknown): string => {
+    const parsed = VirtualPathSchema.safeParse(raw);
+    if (!parsed.success) throw new UserFacingError('that is not an object name');
+    return parsed.data;
+  };
+
+  handle('xop:getObjectGeometry', (_event, raw: unknown): ObjectGeometry => {
+    const installation = requireInstallation(userData);
+    const file = fileForObject(installation, asVirtualPath(raw));
+    try {
+      return readObjectGeometry(file, TEXTURE_MIP_SIZE);
+    } catch (error) {
+      if (error instanceof GeometryError) throw new UserFacingError(error.message);
+      throw error;
+    }
+  });
+
+  handle('xop:getThumbnail', (_event, raw: unknown): Uint8Array | null =>
+    readThumbnail(userData, requireInstallation(userData), asVirtualPath(raw)),
+  );
+
+  handle('xop:putThumbnail', (_event, raw: unknown, png: unknown): boolean => {
+    const installation = requireInstallation(userData);
+    const virtualPath = asVirtualPath(raw);
+    // Refuse to store a picture of an object this installation does not have. The cache is keyed by
+    // name, and a name nobody offered would sit in it being served to somebody later.
+    fileForObject(installation, virtualPath);
+    if (!(png instanceof Uint8Array)) throw new UserFacingError('that is not an image');
+    return writeThumbnail(userData, installation, virtualPath, png);
   });
 }

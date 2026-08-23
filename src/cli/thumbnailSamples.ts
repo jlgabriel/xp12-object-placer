@@ -41,6 +41,10 @@ const WANTED = [
   'red_white_antenna',
   'bench_wood',
   'Plastic_Barrier_Orange',
+  // Ground decals: no solid geometry at all, and the reason the draped fallback exists.
+  'centreline_yellow',
+  'stand_number_12',
+  'Drain_Pavement',
 ];
 
 const catalog = JSON.parse(readFileSync(CATALOG, 'utf8'));
@@ -55,7 +59,14 @@ for (const wanted of WANTED) {
     continue;
   }
 
-  const geometry = parseObj8(readFileSync(measurement.measuredFile, 'utf8'), { mesh: true });
+  const parsed = parseObj8(readFileSync(measurement.measuredFile, 'utf8'), { mesh: true });
+  const solid = parsed.mesh && parsed.mesh.indices.length > 0 ? parsed.mesh : null;
+  const geometry = {
+    ...parsed,
+    mesh: solid ?? parsed.drapedMesh,
+    bounds: solid ? parsed.bounds : (parsed.drapedBounds ?? parsed.bounds),
+    grounded: solid === null,
+  };
   if (!geometry.mesh || !geometry.bounds) {
     console.log(`  (${wanted} has no drawable geometry)`);
     continue;
@@ -87,6 +98,7 @@ for (const wanted of WANTED) {
     name: wanted,
     virtualPath: measurement.virtualPath,
     triangles: geometry.triangleCount,
+    grounded: geometry.grounded,
     bounds: geometry.bounds,
     mesh: {
       positions: Buffer.from(new Float32Array(geometry.mesh.positions).buffer).toString('base64'),

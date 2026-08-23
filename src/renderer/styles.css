@@ -284,10 +284,6 @@ button.danger:hover {
 
 .entries li button,
 .placed li button {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 1px;
   width: 100%;
   padding: 6px 12px;
   text-align: left;
@@ -295,6 +291,23 @@ button.danger:hover {
   border: 0;
   border-bottom: 1px solid #1b232b;
   border-radius: 0;
+}
+
+.placed li button {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+}
+
+/* A catalog row is a picture and three lines beside it. Grid rather than flex so the three lines
+   stay one column and the picture spans all of them, however long the category path is. */
+.entries li button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 9px;
+  row-gap: 1px;
+  align-items: center;
 }
 
 .entries li button:hover:not(:disabled),
@@ -714,4 +727,27 @@ button.primary:disabled {
 .installed .note {
   margin: 0;
   white-space: nowrap;
+}
+
+/* ── thumbnails ───────────────────────────────────────────────────────────────────────────── */
+
+.thumbnail {
+  grid-row: 1 / span 3;
+  align-self: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  background: #161c23;
+  border: 1px solid var(--line);
+  display: block;
+  /* Reserved before the picture arrives. One appearing and pushing the list down would move the
+     object somebody was reaching for out from under the cursor. */
+  flex: none;
+}
+
+.thumbnail img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
 }

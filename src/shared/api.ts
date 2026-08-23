@@ -8,6 +8,32 @@
 
 import type { GroundBox, PlacedObject } from '../core/model.js';
 import type { Project } from '../core/project/project.js';
+import type { DdsFormat } from '../core/dds/dds.js';
+import type { Bounds, Obj8Mesh } from '../core/obj8/parse.js';
+
+/** One mip of an object's albedo, still compressed, ready for the GPU. */
+export interface GeometryTexture {
+  readonly format: DdsFormat;
+  readonly width: number;
+  readonly height: number;
+  readonly data: Uint8Array;
+}
+
+/** Everything needed to draw one object. Main reads it off the disk; the renderer draws it. */
+export interface ObjectGeometry {
+  readonly mesh: Obj8Mesh;
+  readonly bounds: Bounds;
+  readonly texture?: GeometryTexture;
+  /** Why there is no texture, when there is none. Worth logging, not worth showing. */
+  readonly textureProblem?: string;
+  /**
+   * True when all this object has is draped geometry: a marking, a stain, a drain.
+   *
+   * It changes how it should be looked at. The three-quarter view that flatters a hangar reduces a
+   * taxiway line to a bright thread, so these are photographed from much higher up.
+   */
+  readonly grounded?: boolean;
+}
 
 export interface Installation {
   readonly path: string;
@@ -209,6 +235,18 @@ export interface XopApi {
   onSaveBeforeClose(listener: () => void): () => void;
   /** Close for real, past the unsaved-work guard. */
   closeWindow(): Promise<void>;
+
+  /**
+   * A thumbnail already drawn for this object, as PNG bytes, or null if there is not one yet.
+   *
+   * Objects are named by the virtual path the catalog gave them. Main refuses any name that was
+   * not in the scan, so this cannot become a way to read an arbitrary file.
+   */
+  getThumbnail(virtualPath: string): Promise<Uint8Array | null>;
+  /** The triangles and one mip of the texture, so the renderer can draw one. */
+  getObjectGeometry(virtualPath: string): Promise<ObjectGeometry>;
+  /** Keep a thumbnail the renderer just drew. False if the bytes were refused. */
+  putThumbnail(virtualPath: string, png: Uint8Array): Promise<boolean>;
 }
 
 declare global {

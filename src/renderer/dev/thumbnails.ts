@@ -10,7 +10,7 @@
  * context per thumbnail would work here and fall over at the browser's limit of about sixteen,
  * where the older ones quietly go black.
  *
- * Sample data comes from `samples.local.json`, which is built by `scratch/make-samples.ts` from the
+ * Sample data comes from `samples.local.json`, which is built by `npm run samples` from the
  * user's own installation and is gitignored — nothing from Laminar belongs in this repository.
  *
  *   npm run preview:ui  →  http://localhost:5200/dev/thumbnails.html
@@ -24,6 +24,7 @@ interface Sample {
   readonly name: string;
   readonly virtualPath: string;
   readonly triangles: number;
+  readonly grounded?: boolean;
   readonly bounds: Bounds;
   readonly mesh: { positions: string; normals: string; uvs: string; indices: string };
   readonly texture: null | {
@@ -51,7 +52,7 @@ async function main(): Promise<void> {
   if (!response.ok) {
     errorBox.textContent =
       'No samples.local.json. Build it from your own installation first:\n\n' +
-      '  npx tsx scratch/make-samples.ts';
+      '  npm run samples';
     summary.textContent = '';
     return;
   }
@@ -95,7 +96,13 @@ async function main(): Promise<void> {
 
     try {
       const started = performance.now();
-      renderer.render({ mesh, bounds: sample.bounds, ...(texture ? { texture } : {}) });
+      renderer.render({
+        mesh,
+        bounds: sample.bounds,
+        ...(texture ? { texture } : {}),
+        // Flat on the ground: looked at from nearly overhead, as the app does.
+        ...(sample.grounded ? { framing: { elevation: (68 * Math.PI) / 180 } } : {}),
+      });
       const bitmap = await createImageBitmap(source);
       shot.getContext('2d')!.drawImage(bitmap, 0, 0);
       bitmap.close();

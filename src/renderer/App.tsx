@@ -7,6 +7,7 @@ import type { TileProviderId } from './state/store.js';
 import { dsfTileOf, tilePath } from '../core/dsf/tile.js';
 import { ExportDialog } from './ExportDialog.js';
 import { createDocumentCommands } from './documentCommands.js';
+import { forgetThumbnails, ObjectThumbnail } from './thumbnails/ObjectThumbnail.js';
 import type { PlacedObject } from '../core/model.js';
 
 /**
@@ -144,6 +145,7 @@ export function App(): React.JSX.Element {
     run(async () => {
       setProgress({ phase: 'libraries', done: 0, total: 0 });
       setCatalog(await window.xop.rescanCatalog());
+      forgetThumbnails();
       setProgress(null);
     });
 
@@ -386,6 +388,7 @@ function CatalogRow({
         title={entry.unavailable ?? entry.virtualPath}
         onClick={() => onArm(entry)}
       >
+        <ObjectThumbnail virtualPath={entry.virtualPath} unavailable={unavailable} />
         <span className="name">{entry.name}</span>
         <span className="category">{entry.category.join(' / ')}</span>
         <span className="facts">
