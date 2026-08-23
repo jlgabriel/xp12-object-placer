@@ -47,8 +47,21 @@ TEXTURE_MODULATOR       TEXTURE_DRAPED         TEXTURE_DRAPED_NORMAL
 NORMAL_METALNESS        GLOBAL_specular
 ```
 
-⚠️ **Textures are frequently `.dds`** (with a `_NML.png` alongside). A thumbnail renderer must
-decode DDS — this is confirmed on disk, not a precaution.
+⚠️⚠️ **The `.png` an object names is usually a `.dds` on disk.** X-Plane substitutes the extension,
+and on a stock installation the `.png` is very often not there at all. Counted across 12.4.3:
+**3 193 of 3 446 albedo references resolve only after the swap** — 93%. Anything that trusts the
+extension in the OBJ finds almost nothing.
+
+What is actually behind those 3 446 references: **424 distinct DDS files** (atlases, shared many
+times over), in **two formats only — DXT1 and DXT5**, and **every one of them has mipmaps**. No
+BC7, no DX10 header. A thumbnail therefore never decodes a 2048² face: it reads the stored level
+that covers 256 pixels, and `WEBGL_compressed_texture_s3tc` uploads those blocks to the GPU
+without decompressing them at all.
+
+⚠️ **Texture coordinates put v=0 at the BOTTOM**, while a DDS stores its first row at the top, and
+`UNPACK_FLIP_Y_WEBGL` is ignored for compressed textures. The flip has to happen in the shader.
+Without it every object samples the mirror image of its own atlas — which does not error, and does
+not look like a bug: an orange barrier simply comes out grey, because it is reading the white one.
 
 Texture paths are relative to the `.obj`, and routinely climb out of its directory:
 `../../Dynamic_Vehicles/small.png`.

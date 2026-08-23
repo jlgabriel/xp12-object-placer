@@ -45,7 +45,11 @@ window with work in it asks first. Every exported pack also contains a copy of t
 installed pack can be reopened and edited — XOP writes DSF and does not read it, so without that
 copy a pack would be a dead end.
 
-Thumbnails are still missing.
+Every object in the catalog shows a **picture of itself**, drawn from the geometry and texture in
+your own installation — three-quarter view, lit, with ground markings looked at from overhead. They
+are drawn when a row comes into view and kept afterwards, so the list fills in as you scroll and is
+instant every time after that. Nothing is downloaded and nothing is shipped: they are rendered on
+your machine, from your files, into a local cache.
 
 The data layer also runs headless:
 

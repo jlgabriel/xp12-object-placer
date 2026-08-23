@@ -244,7 +244,7 @@ the tag that are not true today:
 - ~~**A layout has to survive closing the window.**~~ **Done (2026-08-22)** — see D12. Nothing in
   the milestone queue had covered it, which is exactly why fixing the target version was worth
   doing when it was.
-- **Thumbnails (H4).** Choosing among 3 837 objects by name is work, not browsing.
+- ~~**Thumbnails (H4).**~~ **Done (2026-08-22)** — see D13.
 - **The pack manifest and the ini line become contract.** After 1.0, `xop-pack.json` and the shape
   of the line written into `scenery_packs.ini` cannot change without an upgrade path: a pack
   installed by 1.0 must still be removable by 1.1.
@@ -282,3 +282,42 @@ without asking. Panning the map is not an edit.
 
 **Main owns the paths**, as everywhere else: the renderer says new/open/save/save-as and never
 where. The `path` in `DocumentState` travels outward only, to be displayed.
+
+---
+
+## D13 — Thumbnails: drawn here, on demand, from the user's own files (2026-08-22)
+
+Every catalog row carries a picture of its object, rendered in the window with WebGL from the
+geometry and texture already installed on the machine. Nothing is downloaded, nothing is shipped,
+and the cache lives in userData — the same standing rule as everything else (D7).
+
+**WebGL directly, no scene library.** One mesh, one light, a fixed camera. The hard part is framing,
+and framing is arithmetic that belongs in `core` where it can be tested by projecting the corners of
+a bounding box — no GPU, no eyeballing. A dependency would have bought about 170 lines and cost
+600 KB in a project that has five dependencies.
+
+**On demand, not up front.** Of 3 700 objects a person looks at a few dozen. A row asks for its
+picture when it comes near the screen; the answer is kept in memory for the session and on disk
+after that. Drawing all of them at scan time would add minutes for work mostly nobody wants.
+
+**No worker.** This was going to be OffscreenCanvas in a worker until the drawing was measured at
+one millisecond. The time is in reading the `.obj` and the atlas, which happens in main, off the
+renderer's thread already. If a very heavy object ever makes this stutter, the renderer accepts any
+canvas and the move is small.
+
+**Ground decals draw their draped geometry.** 476 objects of 3 706 have no solid geometry at all —
+markings, drains, stains. The parser excludes draped triangles from bounds on purpose, because a
+footprint measured from them would be wrong, but for a thumbnail they are the entire object. They
+are framed from nearly overhead, since the three-quarter view turns a taxiway line into a thread.
+
+**16 MB is the ceiling on an object worth previewing.** Parsing runs at roughly 22 ms/MB in main,
+where a long one freezes the window; one stock oil platform is 63 MB and takes 1.4 seconds. Three
+objects out of 3 706 are over the line and lose their picture. If that becomes the wrong trade, the
+work belongs in the utilityProcess the scanner already uses.
+
+**A rescan throws the pictures away.** It is the only moment an object can change underneath one.
+
+**Two rules that are not preferences**, both in `reference/obj8.md` with the counts behind them: the
+`.png`→`.dds` substitution, without which 93% of the library renders grey; and the v flip in the
+shader, without which every object samples the mirror image of its own atlas — silently, and
+plausibly enough to look intentional.
