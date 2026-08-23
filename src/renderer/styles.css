@@ -69,6 +69,8 @@ header .document b {
   color: var(--accent);
 }
 
+/* Reads as the caption it used to be, behaves as the button it now is: no chrome until you are
+   over it, so the header keeps its shape and the affordance still announces itself. */
 header .installation {
   margin-left: auto;
   color: var(--dim);
@@ -76,6 +78,18 @@ header .installation {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 40%;
+  padding: 2px 6px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font: inherit;
+  cursor: pointer;
+}
+
+header .installation:hover {
+  border-color: var(--line);
+  color: var(--text);
 }
 
 header em {
@@ -84,10 +98,23 @@ header em {
 }
 
 .error {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 10px 14px;
   background: #3a1c1c;
   color: var(--warn);
   border-bottom: 1px solid var(--line);
+}
+
+.error span {
+  flex: 1;
+}
+
+.error button {
+  flex: none;
+  padding: 3px 9px;
+  font-size: 12px;
 }
 
 main {
@@ -166,6 +193,11 @@ main {
   align-self: flex-start;
   width: auto;
   flex-direction: row;
+}
+
+.picker-actions {
+  display: flex;
+  gap: 8px;
 }
 
 /* ── the editor: objects | map | placed ───────────────────────────────────────────────────── */

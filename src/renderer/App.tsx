@@ -21,6 +21,9 @@ export function App(): React.JSX.Element {
   const [version, setVersion] = useState('');
   const [installation, setInstallation] = useState<Installation | null>(null);
   const [candidates, setCandidates] = useState<Installation[] | null>(null);
+  // Whether the picker is open on purpose, as opposed to being the first-run screen. The two look
+  // the same and mean different things: one of them has a way out.
+  const [picking, setPicking] = useState(false);
   const [catalog, setCatalog] = useState<CatalogSnapshot | null>(null);
   const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -139,18 +142,45 @@ export function App(): React.JSX.Element {
     }
   };
 
+  /**
+   * Settle on an installation, from either door.
+   *
+   * The thumbnails have to go: they are keyed by virtual path, and the whole point of a virtual
+   * path is that two installations can answer it with two different objects. Keeping them would
+   * show the previous X-Plane's picture beside the new one's name, which is the sort of wrong that
+   * looks right.
+   */
+  const settle = async (chosen: Installation): Promise<void> => {
+    setInstallation(chosen);
+    forgetThumbnails();
+    setCatalog(await window.xop.getCatalog());
+    setPicking(false);
+  };
+
   const choose = (path: string): Promise<void> =>
     run(async () => {
-      setInstallation(await window.xop.selectInstallation(path));
-      setCatalog(await window.xop.getCatalog());
+      await settle(await window.xop.selectInstallation(path));
     });
 
   const browse = (): Promise<void> =>
     run(async () => {
       const chosen = await window.xop.browseForInstallation();
       if (!chosen) return;
-      setInstallation(chosen);
-      setCatalog(await window.xop.getCatalog());
+      await settle(chosen);
+    });
+
+  /**
+   * Reopen the picker on an installation already in use.
+   *
+   * v1.0.0 had no way back: the picker was the first-run screen and nothing else, so whoever keeps
+   * a release install and a beta side by side — which the X-Plane crowd does as a matter of course,
+   * and this machine records four — was married to whichever one they clicked first. The list is
+   * re-read rather than reused: an installation can have appeared or been deleted since launch.
+   */
+  const changeInstallation = (): Promise<void> =>
+    run(async () => {
+      setCandidates(await window.xop.listInstallations());
+      setPicking(true);
     });
 
   const rescan = (): Promise<void> =>
@@ -188,28 +218,46 @@ export function App(): React.JSX.Element {
           {documentName}
           {dirty && <b aria-label="unsaved changes"> •</b>}
         </span>
+        {/* The installation is a control, not a caption. It reads as the path either way, so the
+            header looks the same as it always did — but it is now the way out of a wrong one. */}
         {installation && (
-          <span className="installation" title={installation.path}>
+          <button
+            className="installation"
+            title={`${installation.path}\nClick to use a different X-Plane 12 installation`}
+            onClick={() => void changeInstallation()}
+          >
             {installation.path}
             {installation.version && <em> · X-Plane {installation.version}</em>}
-          </span>
+          </button>
         )}
       </header>
 
-      {error && <div className="error">{error}</div>}
-
-      {!installation && candidates && (
-        <InstallationPicker candidates={candidates} onChoose={choose} onBrowse={browse} />
+      {error && (
+        <div className="error">
+          <span>{error}</span>
+          <button onClick={() => void window.xop.openLog()}>Open log</button>
+        </div>
       )}
 
-      {installation &&
-        (progress ? (
+      {/* One screen at a time. The picker takes the whole body while it is open — laying it over
+          the editor, or beside it, would leave two <main> elements arguing about what the window
+          is currently for. */}
+      {(picking || !installation) && candidates ? (
+        <InstallationPicker
+          candidates={candidates}
+          onChoose={choose}
+          onBrowse={browse}
+          {...(installation ? { onCancel: () => setPicking(false) } : {})}
+        />
+      ) : installation ? (
+        progress ? (
           <Scanning progress={progress} />
         ) : catalog ? (
           <Editor catalog={catalog} onRescan={rescan} />
         ) : (
           <NoCatalog onScan={rescan} />
-        ))}
+        )
+      ) : null}
     </div>
   );
 }
@@ -218,10 +266,13 @@ function InstallationPicker({
   candidates,
   onChoose,
   onBrowse,
+  onCancel,
 }: {
   candidates: readonly Installation[];
   onChoose: (path: string) => void;
   onBrowse: () => void;
+  /** Absent on a first run: there is nothing to go back to until something has been chosen. */
+  onCancel?: () => void;
 }): React.JSX.Element {
   return (
     <main className="picker">
@@ -247,9 +298,16 @@ function InstallationPicker({
           </li>
         ))}
       </ul>
-      <button className="browse" onClick={onBrowse}>
-        Choose a folder…
-      </button>
+      <div className="picker-actions">
+        <button className="browse" onClick={onBrowse}>
+          Choose a folder…
+        </button>
+        {onCancel && (
+          <button className="browse" onClick={onCancel}>
+            Keep the current one
+          </button>
+        )}
+      </div>
     </main>
   );
 }

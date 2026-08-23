@@ -13,6 +13,17 @@ import type { ScanMessage, ScanRequest } from './scanWorker.js';
 
 const inFlight = new Map<string, Promise<CatalogSnapshot>>();
 
+/**
+ * A scan that did not finish, said in words meant for the person who asked for it.
+ *
+ * Marked with its own class so the IPC boundary can let the message through instead of replacing it
+ * with the generic line. Every message this file produces is either written here or comes from the
+ * scanner reading the user's own installation — the same category as an InstallError, and the same
+ * reason to keep it: "the catalog scan stopped unexpectedly" and "EACCES … catalog" send somebody
+ * to two completely different places, and "something went wrong" sends them nowhere.
+ */
+export class ScanError extends Error {}
+
 export function runScan(
   userData: string,
   installation: string,
@@ -35,12 +46,19 @@ export function runScan(
     child.on('message', (message: ScanMessage) => {
       if (message.kind === 'progress') onProgress(message.progress);
       else if (message.kind === 'done') finish(() => resolve(message.snapshot));
-      else finish(() => reject(new Error(message.message)));
+      else finish(() => reject(new ScanError(message.message)));
     });
 
     // A worker that dies without answering must not leave the promise pending forever, or the
     // in-flight guard would refuse every future scan for the rest of the session.
-    child.on('exit', () => finish(() => reject(new Error('the catalog scan stopped unexpectedly'))));
+    // The exit code is the whole of what we know here, so it goes in the sentence rather than being
+    // summarised away. Guessing at a cause — "your antivirus", "out of memory" — would read as a
+    // diagnosis, and a wrong one sends the reader to fix something that was never broken.
+    child.on('exit', (code) =>
+      finish(() =>
+        reject(new ScanError(`the catalog scan stopped unexpectedly (exit code ${code})`)),
+      ),
+    );
 
     child.postMessage({ userData, installation } satisfies ScanRequest);
   });

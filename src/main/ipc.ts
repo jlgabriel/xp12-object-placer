@@ -11,13 +11,14 @@
  */
 
 import { createHash } from 'node:crypto';
-import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
 import { z } from 'zod';
 import { describeInstallation, findInstallations, isInstallation } from '../node/findInstallations.js';
 import { readCachedCatalog, readCachedObjectFiles } from './catalogCache.js';
 import { clearThumbnails, readThumbnail, writeThumbnail } from './thumbnailCache.js';
 import { GeometryError, readObjectGeometry } from '../node/objectGeometry.js';
-import { runScan } from './runScan.js';
+import { runScan, ScanError } from './runScan.js';
+import { logError, logFile, logInfo } from './log.js';
 import { readSettings, writeSettings } from './settings.js';
 import { planExport } from '../core/export/planExport.js';
 import {
@@ -144,8 +145,12 @@ function handle<T>(
       return await fn(event, ...args);
     } catch (error) {
       if (error instanceof UserFacingError) throw new Error(error.message);
-      console.error(`[main] ${channel} failed:`, error);
-      throw new Error('something went wrong — see the application log');
+      // Everything the renderer is not allowed to see goes to the log, which the window can open.
+      // Before there was a log this branch was a dead end: the user got one sentence that named no
+      // cause, and neither did the bug report. The generic text stays — what changed is that the
+      // detail now exists somewhere a person can reach it.
+      logError(`${channel} failed`, error);
+      throw new Error('something went wrong — use “Open log” for the details');
     }
   });
 }
@@ -154,6 +159,22 @@ export function registerIpc(): void {
   const userData = app.getPath('userData');
 
   handle('xop:getVersion', () => __APP_VERSION__);
+
+  /**
+   * Show the user their own log.
+   *
+   * The renderer never learns where the file is — it asks main to reveal it, which is the same rule
+   * every other path in this file follows. `.log` has no default application on Windows, so a
+   * refused open falls back to selecting the file in the file manager, which always works.
+   */
+  handle('xop:openLog', async (): Promise<void> => {
+    const file = logFile();
+    // Guarantees the file exists even in a session that has not failed at anything yet, and stamps
+    // the moment the user went looking — useful when reading a log somebody sent.
+    logInfo('log opened from the application');
+    const problem = await shell.openPath(file);
+    if (problem) shell.showItemInFolder(file);
+  });
 
   handle('xop:listInstallations', (): Installation[] => offer(findInstallations()));
 
@@ -212,7 +233,23 @@ export function registerIpc(): void {
     const send = (progress: ScanProgress): void => {
       if (!event.sender.isDestroyed()) event.sender.send(SCAN_PROGRESS, progress);
     };
-    const snapshot = await runScan(userData, installation, send);
+    let snapshot: CatalogSnapshot;
+    try {
+      snapshot = await runScan(userData, installation, send);
+    } catch (error) {
+      // A ScanError is our own sentence about the user's own installation — the same reasoning that
+      // lets an InstallError through in exportPack below. Swallowing it was the actual v1.0.0 bug:
+      // runScan takes care to say *what* stopped the scan and the catch-all threw that away, so the
+      // one message worth reading never left the process.
+      if (error instanceof ScanError) {
+        // Logged as well as shown. The user reads one sentence and moves on; the report they send
+        // three days later needs the timestamp, the build and the stack, and by then the sentence
+        // is a paraphrase in a forum post.
+        logError('the catalog scan failed', error);
+        throw new UserFacingError(error.message);
+      }
+      throw error;
+    }
 
     // A rescan is the moment an object can change shape, or be repainted, underneath a picture of
     // it. Both caches go: the file map this process is holding, and the thumbnails on disk.

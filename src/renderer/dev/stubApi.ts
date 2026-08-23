@@ -190,6 +190,10 @@ const STUB_PROJECT: Project = {
 export function installStubApi(state: StubState): void {
   const api: XopApi = {
     getVersion: async () => '0.0.0-preview',
+    openLog: async () => {
+      // Nothing to open in a browser tab; the harness only has to prove the button is reachable.
+      console.log('[stub] openLog');
+    },
 
     newProject: async () => {
       savedTo = null;

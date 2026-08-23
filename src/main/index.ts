@@ -9,6 +9,7 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, dialog, session, shell } from 'electron';
 import { registerIpc } from './ipc.js';
+import { logError, logInfo, logSessionStart } from './log.js';
 import { documentName, isDirty } from './projectFile.js';
 
 /** electron-vite sets this in dev (the Vite renderer dev-server URL); undefined when packaged. */
@@ -33,7 +34,7 @@ const CSP =
 // version — log it and carry on — would quietly turn every fatal main-process error into XOP
 // limping along in an unknown state. Record why, then preserve the original outcome.
 const fatal = (what: string) => (error: unknown) => {
-  console.error(`[main] ${what}:`, error);
+  logError(what, error);
   process.exit(1);
 };
 process.on('uncaughtException', fatal('uncaught exception in main'));
@@ -130,10 +131,10 @@ function createWindow(): void {
 
   // A window that comes up blank is the one report where the user has nothing else to tell us.
   win.webContents.on('did-fail-load', (_event, code, description, url) => {
-    console.error(`[main] renderer failed to load (${code} ${description}): ${url}`);
+    logInfo(`renderer failed to load (${code} ${description}): ${url}`);
   });
   win.webContents.on('render-process-gone', (_event, details) => {
-    console.error(`[main] renderer gone: ${details.reason} (exit ${details.exitCode})`);
+    logInfo(`renderer gone: ${details.reason} (exit ${details.exitCode})`);
   });
 
   if (RENDERER_URL) {
@@ -145,6 +146,8 @@ function createWindow(): void {
 }
 
 void app.whenReady().then(() => {
+  logSessionStart();
+
   if (app.isPackaged) {
     session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
       callback({

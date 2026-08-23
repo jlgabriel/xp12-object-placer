@@ -175,6 +175,15 @@ export interface XopApi {
    */
   getVersion(): Promise<string>;
 
+  /**
+   * Show the user the application log.
+   *
+   * Exists because the generic "something went wrong" has to lead somewhere. The renderer is told
+   * nothing about the file — not its path, not its contents — it only asks main to put it in front
+   * of the user, who can then read it or attach it to a report.
+   */
+  openLog(): Promise<void>;
+
   /** Installations X-Plane itself records, each already checked against the disk. */
   listInstallations(): Promise<Installation[]>;
   /** The one in use, or null on a first run. */

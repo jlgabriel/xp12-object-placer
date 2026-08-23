@@ -14,6 +14,7 @@ const SAVE_BEFORE_CLOSE = 'xop:saveBeforeClose';
 
 const api: XopApi = {
   getVersion: () => ipcRenderer.invoke('xop:getVersion'),
+  openLog: () => ipcRenderer.invoke('xop:openLog'),
 
   listInstallations: () => ipcRenderer.invoke('xop:listInstallations'),
   currentInstallation: () => ipcRenderer.invoke('xop:currentInstallation'),
