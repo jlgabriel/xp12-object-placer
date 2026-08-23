@@ -58,10 +58,12 @@ XOP_DSFTOOL="D:/Simuladores/Ortho4XP1.3/Utils/DSFTool.exe" npx tsx probes/H8/mak
 
 ## Install
 
-Copy the two pack folders into `Custom Scenery`:
+Copy the two pack folders into `Custom Scenery`. **PowerShell**, which is what this project is
+worked in — `cp` there is `Copy-Item`, `-r` is `-Recurse`, and it takes only one positional
+argument, so the POSIX form fails with an unhelpful message about a positional parameter:
 
-```bash
-cp -r "probes/H8/XOP_H8_Ours" "probes/H8/XOP_H8_Control" "D:/Laminar/XP12-Last-Release/X-Plane 12/Custom Scenery/"
+```powershell
+Copy-Item -Recurse -Path "probes\H8\XOP_H8_Ours","probes\H8\XOP_H8_Control" -Destination "D:\Laminar\XP12-Last-Release\X-Plane 12\Custom Scenery"
 ```
 
 Nothing is written to `scenery_packs.ini` by us. X-Plane will add its own lines for both packs at the
@@ -92,6 +94,10 @@ DSFTool's: rotation is clockwise, and the tower at 180 faces opposite the one at
 
 Delete both folders from `Custom Scenery`. X-Plane drops their lines from `scenery_packs.ini` by
 itself the next time it starts.
+
+```powershell
+Remove-Item -Recurse -Force "D:\Laminar\XP12-Last-Release\X-Plane 12\Custom Scenery\XOP_H8_Ours","D:\Laminar\XP12-Last-Release\X-Plane 12\Custom Scenery\XOP_H8_Control"
+```
 
 ## Result
 
