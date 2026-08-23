@@ -60,20 +60,48 @@ export interface AirportIndex {
   readonly altCodes: readonly string[];
   /** The name, folded. */
   readonly names: readonly string[];
+  /**
+   * Whether the shown code has the shape of an ICAO code, which is what ranks it.
+   *
+   * See `looksLikeIcao`.
+   */
+  readonly icaoShaped: readonly boolean[];
+}
+
+/**
+ * Four letters and no digits — the shape of an ICAO code.
+ *
+ * This is a ranking signal, not an identity check, and it does not have to be perfect: `AEDU` is
+ * four letters and is really a scenery pack's helipad, and it will rank as an airport. What it does
+ * reliably is separate the codes ICAO issues from the ones a national authority does — `SC02`,
+ * `L00`, `5TE`, `92T`, `314NZ` all carry digits, and ICAO codes never do.
+ *
+ * Expects an already-lowercased code, which is what the index stores.
+ */
+function looksLikeIcao(code: string): boolean {
+  if (code.length !== 4) return false;
+  for (let i = 0; i < 4; i++) {
+    const c = code.charCodeAt(i);
+    if (c < 0x61 || c > 0x7a) return false;
+  }
+  return true;
 }
 
 export function buildAirportIndex(airports: readonly Airport[]): AirportIndex {
   const codes: string[] = [];
   const altCodes: string[] = [];
   const names: string[] = [];
+  const icaoShaped: boolean[] = [];
   for (const airport of airports) {
-    codes.push(airportCode(airport).toLowerCase());
+    const code = airportCode(airport).toLowerCase();
+    codes.push(code);
     // Only where the two differ, which is where the row identifier is a synthetic one nobody would
     // type. Where they are the same, the second copy would be searched for nothing.
     altCodes.push(airport.icao === undefined ? '' : airport.id.toLowerCase());
     names.push(foldForSearch(airport.name));
+    icaoShaped.push(looksLikeIcao(code));
   }
-  return { airports, codes, altCodes, names };
+  return { airports, codes, altCodes, names, icaoShaped };
 }
 
 /** What the box searches before the airports have arrived. */
@@ -82,6 +110,7 @@ export const EMPTY_AIRPORT_INDEX: AirportIndex = {
   codes: [],
   altCodes: [],
   names: [],
+  icaoShaped: [],
 };
 
 /**
@@ -112,8 +141,8 @@ export interface AirportSearchResult {
  *   2. code prefix     — "LFP" finds LFPG, LFPO, … by the code each row shows
  *   3. name substring  — "charles" finds LFPG, "san francisco" finds KSFO
  *
- * Within a tier the order is alphabetical, so the list does not reshuffle for reasons the person
- * reading it cannot see. A blank query returns nothing and the dropdown stays shut.
+ * Within a tier, airports with an ICAO-shaped code come first and each half is alphabetical — see
+ * `order`. A blank query returns nothing and the dropdown stays shut.
  */
 export function searchAirports(
   index: AirportIndex,
@@ -123,7 +152,7 @@ export function searchAirports(
   const q = foldForSearch(query.trim());
   if (q === '') return { shown: [], matches: 0 };
 
-  const { airports, codes, altCodes, names } = index;
+  const { airports, codes, altCodes, names, icaoShaped } = index;
   const exact: number[] = [];
   const prefix: number[] = [];
   const named: number[] = [];
@@ -139,10 +168,22 @@ export function searchAirports(
     else if (searchNames && names[i]!.includes(q)) named.push(i);
   }
 
-  // Three-way, including the tie. A comparator that never says "equal" is not a valid one, and the
-  // sort is free to do something surprising with it.
-  const order = (keys: readonly string[]) => (a: number, b: number) =>
-    keys[a]! < keys[b]! ? -1 : keys[a]! > keys[b]! ? 1 : 0;
+  /**
+   * ICAO-shaped codes first, then alphabetical.
+   *
+   * Both halves of that are the answer to a real complaint. Alphabetical alone put `SC02`, `SC03`
+   * and eighteen more South Carolina helipads above `SCEL` for a search of "SC", because `0` sorts
+   * before `e` — 902 airports match and the twenty shown were all local codes. Airports with an
+   * ICAO code are the ones people look for by code at all, so they go first, and inside each half
+   * the order stays alphabetical so nothing shuffles for a reason the reader cannot see.
+   *
+   * Three-way, including the tie: a comparator that never says "equal" is not a valid one, and the
+   * sort is free to do something surprising with it.
+   */
+  const order = (keys: readonly string[]) => (a: number, b: number) => {
+    if (icaoShaped[a] !== icaoShaped[b]) return icaoShaped[a] ? -1 : 1;
+    return keys[a]! < keys[b]! ? -1 : keys[a]! > keys[b]! ? 1 : 0;
+  };
   prefix.sort(order(codes));
   named.sort(order(names));
 

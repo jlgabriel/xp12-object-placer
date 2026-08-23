@@ -74,6 +74,38 @@ describe('searching airports', () => {
   });
 
   /**
+   * A code ICAO issued outranks one a national authority did.
+   *
+   * Alphabetical alone is not enough: `0` sorts before `e`, so a search for "SC" against a real
+   * installation answered with twenty South Carolina helipads — SC02, SC03, SC04 — and buried SCEL
+   * among the other 882 matches. Airports with an ICAO code are the ones anybody searches for by
+   * code, so they come first, and each half is still alphabetical.
+   */
+  it('puts four-letter ICAO codes above local ones', () => {
+    const index = buildAirportIndex([
+      { id: 'SC02', name: '[H] Beaufort County Memorial Hospital', lat: 32.4, lon: -80.7 },
+      { id: 'SCEL', name: 'Arturo Benítez Intl', lat: -33.39, lon: -70.79 },
+      { id: 'SC03', name: 'Mc Neil', lat: 34.1, lon: -80.2 },
+      { id: 'SCTB', name: 'Eulogio Sánchez', lat: -33.46, lon: -70.55 },
+    ]);
+    expect(searchAirports(index, 'SC').shown.map(airportCode)).toEqual([
+      'SCEL',
+      'SCTB',
+      'SC02',
+      'SC03',
+    ]);
+  });
+
+  it('applies the same preference when the match came from the name', () => {
+    const index = buildAirportIndex([
+      { id: '92T', name: 'Chaney San Francisco Ranch', lat: 29.9, lon: -102.9 },
+      { id: 'KSFO', name: 'San Francisco Intl', lat: 37.62, lon: -122.38 },
+    ]);
+    // "Chaney" sorts before "San", and loses anyway: it is a local code.
+    expect(searchAirports(index, 'san francisco').shown.map(airportCode)).toEqual(['KSFO', '92T']);
+  });
+
+  /**
    * Alphabetical by the code the reader can see, not by the one underneath it.
    *
    * `LFPR` is row `8422` in the shipped file — an airport found by its ICAO code and ordered by its
@@ -81,13 +113,16 @@ describe('searching airports', () => {
    * accounted for it.
    */
   it('orders by the code it shows, not by the identifier it matched underneath', () => {
+    // Both are ICAO-shaped, so that preference cannot be what decides this — only the alphabet can,
+    // and the two codes sort the opposite way round from the identifiers hidden under them.
     const index = buildAirportIndex([
       { id: '8422', icao: 'LFPR', name: 'Orange Plan de Dieu', lat: 44.18, lon: 4.92 },
-      { id: 'L00', name: 'Rosamond Skypark', lat: 34.87, lon: -118.21 },
+      { id: 'ZZZZ', icao: 'LAAA', name: 'Somewhere Else', lat: 40.0, lon: 3.0 },
     ]);
-    expect(searchAirports(index, 'L').shown.map(airportCode)).toEqual(['L00', 'LFPR']);
-    // And it is still findable by the identifier the file gives it.
+    expect(searchAirports(index, 'L').shown.map(airportCode)).toEqual(['LAAA', 'LFPR']);
+    // And each is still findable by the identifier the file gives it.
     expect(searchAirports(index, '8422').shown.map(airportCode)).toEqual(['LFPR']);
+    expect(searchAirports(index, 'ZZZZ').shown.map(airportCode)).toEqual(['LAAA']);
   });
 
   /**
