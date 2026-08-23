@@ -4,7 +4,7 @@ Place scenery objects on a map, geographically, and get an installable X-Plane 1
 
 Pick a spot anywhere on Earth — an airport apron, a city block, a ridge in the middle of nowhere.
 Browse the objects your X-Plane installation already has. Drop them on a satellite map, rotate them,
-duplicate them, line them up. Export a Custom Scenery pack.
+duplicate them. Export a Custom Scenery pack.
 
 *Short form, in the code and in these docs: **XOP**.*
 
@@ -18,10 +18,30 @@ looking at a map.
 Everything XOP produces is an **overlay** — it sits on top of whatever scenery is already there,
 default or custom.
 
-## Status
+## Install
 
-Early, and nothing to install yet — but the chain is closed end to end, and the simulator has loaded
-a pack written entirely by XOP.
+Grab the latest build from [**Releases**](https://github.com/jlgabriel/xp12-object-placer/releases):
+
+| | |
+| --- | --- |
+| **Windows** | `-setup.exe` to install, or `-portable.exe` to just run it |
+| **macOS** | `.dmg` — Apple silicon and Intel |
+| **Linux** | `.AppImage` |
+
+Needs **X-Plane 12**. It is not compatible with X-Plane 11, which organises its libraries
+differently.
+
+> **The builds are not signed**, because a certificate costs money every year and nobody has asked
+> for this yet. Windows SmartScreen will say "unrecognised app": *More info* → *Run anyway*. macOS
+> will say the developer cannot be verified: right-click the app → *Open* → *Open*. If you would
+> rather not, the source is right here and `npm install && npm run build:win` produces the same
+> installer on your own machine.
+
+Only Windows has been run in anger. The macOS and Linux builds are made from the same source and
+the code knows where X-Plane keeps its records on each system, but nobody has yet used them for a
+day's work — if something is wrong there, an issue is welcome.
+
+## What it does
 
 The window opens on your X-Plane installation, reads its libraries, and gives you the objects it
 actually has. Pick one, click the map, and it lands there: drawn as its real footprint, turned by

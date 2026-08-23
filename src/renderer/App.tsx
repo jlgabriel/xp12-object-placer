@@ -73,6 +73,18 @@ export function App(): React.JSX.Element {
       if (editorStore.getState().modalOpen) return;
 
       const key = event.key.toLowerCase();
+
+      // Duplicate acts on the selection rather than the document, but it lives here because this
+      // is where Ctrl already means something and where the modal guard already is.
+      if (key === 'd') {
+        const selection = editorStore.getState().selection;
+        if (selection !== null) {
+          event.preventDefault();
+          editorStore.getState().duplicateObject(selection);
+        }
+        return;
+      }
+
       const command =
         key === 's'
           ? event.shiftKey
@@ -560,9 +572,17 @@ function Inspector({ object }: { object: PlacedObject }): React.JSX.Element {
         Rotation 0 is how the artist modelled the object, not north — the stock fuel truck faces
         south at 0. Turn it by eye against the imagery with the cyan grip.
       </p>
-      <button className="danger" onClick={() => editorStore.getState().deleteObject(object.id)}>
-        Remove
-      </button>
+      <div className="inspector-actions">
+        <button
+          onClick={() => editorStore.getState().duplicateObject(object.id)}
+          title="Place another one beside this (Ctrl+D)"
+        >
+          Duplicate
+        </button>
+        <button className="danger" onClick={() => editorStore.getState().deleteObject(object.id)}>
+          Remove
+        </button>
+      </div>
     </div>
   );
 }

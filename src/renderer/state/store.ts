@@ -14,7 +14,7 @@
 import { createStore, type Mutate, type StoreApi } from 'zustand/vanilla';
 import { subscribeWithSelector } from 'zustand/middleware';
 import type { LonLat, PlacedObject } from '../../core/model.js';
-import { normalizeDegrees, wrapLon } from '../../core/geo/geo.js';
+import { destination, normalizeDegrees, wrapLon } from '../../core/geo/geo.js';
 import type { CatalogEntry } from '../../shared/api.js';
 import {
   DEFAULT_CAMERA,
@@ -81,6 +81,8 @@ export interface EditorState {
   moveObject(id: string, position: LonLat): void;
   rotateObject(id: string, rotation: number): void;
   deleteObject(id: string): void;
+  /** Place another of the same object, beside this one, and select it. */
+  duplicateObject(id: string): void;
   setCamera(camera: Camera): void;
   goTo(position: LonLat, zoom?: number): void;
   setTiles(provider: TileProviderId): void;
@@ -202,6 +204,29 @@ export function createEditorStore(): EditorStore {
             object.id === id ? { ...object, rotation: normalizeDegrees(rotation) } : object,
           ),
         });
+      },
+
+      duplicateObject(id) {
+        const { objects, catalogIndex } = get();
+        const original = objects.find((object) => object.id === id);
+        if (!original) return;
+
+        // Offset by the object's own width so the copy lands *beside* it rather than inside it.
+        // A fixed nudge would hide a hangar behind a hangar and leave a bollard metres away from
+        // its twin; the footprint is already in the catalog, so use it.
+        const ground = catalogIndex.get(original.libraryPath)?.ground;
+        const width = ground ? ground.maxX - ground.minX : 0;
+        const step = Math.max(width, 2) + 1;
+
+        const copy: PlacedObject = {
+          ...original,
+          id: nextId(),
+          // Due east of the original, in metres on the ground — not a constant added to the
+          // longitude, which would be a different distance at every latitude and nothing at all
+          // near the poles.
+          position: destination(original.position, step, 90),
+        };
+        set({ objects: [...objects, copy], selection: copy.id });
       },
 
       deleteObject(id) {

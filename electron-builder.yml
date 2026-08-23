@@ -1,0 +1,63 @@
+# Packaging for XP Object Placer.
+#
+# Unsigned, deliberately: a Windows certificate costs money every year and an Apple one costs money
+# and a Mac, and neither is worth it before anybody has asked for this. The README carries the
+# SmartScreen and Gatekeeper steps instead. Installers land in dist/, which is gitignored.
+#
+# There are no bundled assets and there never will be — everything this app draws or writes comes
+# from the user's own X-Plane installation (D7). `files` therefore only needs the build output.
+appId: com.jlgabriel.xpobjectplacer
+productName: XP Object Placer
+copyright: © 2026 Juan Luis Gabriel — GPL-3.0-or-later
+
+directories:
+  buildResources: resources
+  output: dist
+
+files:
+  - out/**
+  - package.json
+  - LICENSE
+  - THIRD_PARTY_NOTICES.md
+  - "!**/*.map"
+
+asar: true
+# No native modules, so nothing has to be rebuilt against Electron's ABI.
+npmRebuild: false
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+
+portable:
+  artifactName: ${name}-${version}-portable.${ext}
+
+# macOS builds have to be produced on a Mac; a .dmg cannot be made from Windows. Both architectures,
+# so Apple silicon and Intel are covered.
+mac:
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  category: public.app-category.utilities
+
+dmg:
+  artifactName: ${name}-${version}-${arch}.${ext}
+
+linux:
+  target:
+    - AppImage
+  category: Utility
+  artifactName: ${name}-${version}.${ext}

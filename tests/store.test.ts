@@ -10,6 +10,7 @@ import {
 import { projectOf } from '../src/renderer/state/store.js';
 import type { PlacedObject } from '../src/core/model.js';
 import type { CatalogEntry } from '../src/shared/api.js';
+import { haversine } from '../src/core/geo/geo.js';
 
 const HANGAR: CatalogEntry = {
   virtualPath: 'lib/airport/hangars/arched/16x16/rusted_1.obj',
@@ -299,5 +300,77 @@ describe('the store as a project', () => {
     expect(project.objects).toEqual(store.getState().objects);
     // It has to survive the reader it will meet on the way back in.
     expect(() => parseProject(JSON.parse(JSON.stringify(project)))).not.toThrow();
+  });
+});
+
+describe('duplicating', () => {
+  it('makes a second object with its own id, selected', () => {
+    const store = armed();
+    store.getState().placeAt(SOMEWHERE);
+    const original = store.getState().objects[0]!;
+
+    store.getState().duplicateObject(original.id);
+
+    const objects = store.getState().objects;
+    expect(objects).toHaveLength(2);
+    expect(objects[1]!.id).not.toBe(original.id);
+    expect(store.getState().selection).toBe(objects[1]!.id);
+  });
+
+  it('keeps everything about the object except where it is', () => {
+    const store = armed();
+    store.getState().placeAt(SOMEWHERE);
+    const original = store.getState().objects[0]!;
+    store.getState().rotateObject(original.id, 137);
+
+    store.getState().duplicateObject(original.id);
+    const [first, copy] = store.getState().objects;
+
+    expect(copy!.libraryPath).toBe(first!.libraryPath);
+    expect(copy!.rotation).toBe(137);
+    expect(copy!.label).toBe(first!.label);
+    expect(copy!.position).not.toEqual(first!.position);
+  });
+
+  // A fixed nudge hides a hangar behind a hangar and leaves a bollard metres from its twin. The
+  // catalog already knows how wide the thing is.
+  it('puts the copy beside the original, clear of its footprint', () => {
+    const store = armed();
+    store.getState().placeAt(SOMEWHERE);
+    store.getState().duplicateObject(store.getState().objects[0]!.id);
+
+    const [first, copy] = store.getState().objects;
+    const metres = haversine(first!.position, copy!.position);
+    const width = HANGAR.ground!.maxX - HANGAR.ground!.minX; // 16.4 m
+    expect(metres).toBeGreaterThan(width);
+    expect(metres).toBeLessThan(width * 2);
+    // Due east: same latitude, greater longitude.
+    expect(copy!.position.lat).toBeCloseTo(first!.position.lat, 6);
+    expect(copy!.position.lon).toBeGreaterThan(first!.position.lon);
+  });
+
+  it('still separates an object the catalog never measured', () => {
+    const store = createEditorStore();
+    store.getState().setCatalog([]);
+    store.getState().arm('lib/unknown/thing.obj');
+    store.getState().placeAt(SOMEWHERE);
+    store.getState().duplicateObject(store.getState().objects[0]!.id);
+
+    const [first, copy] = store.getState().objects;
+    expect(haversine(first!.position, copy!.position)).toBeGreaterThan(1);
+  });
+
+  it('counts as an edit', () => {
+    const store = armed();
+    store.getState().placeAt(SOMEWHERE);
+    store.getState().markSaved('saved');
+    store.getState().duplicateObject(store.getState().objects[0]!.id);
+    expect(store.getState().dirty).toBe(true);
+  });
+
+  it('does nothing for an object that is not there', () => {
+    const store = armed();
+    store.getState().duplicateObject('obj-404');
+    expect(store.getState().objects).toEqual([]);
   });
 });

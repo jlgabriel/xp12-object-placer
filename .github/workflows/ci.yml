@@ -1,0 +1,29 @@
+name: CI
+
+# Typecheck and unit tests on every push and pull request. Packaging lives in release.yml and only
+# runs on a tag — there is no reason to build three installers to find out a test is red.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: typecheck · tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      # The DSFTool control and the real-installation DDS control both skip themselves when the
+      # environment variables that point at them are absent, which on a runner they always are.
+      # What runs here is everything that does not need X-Plane on the machine.
+      - run: npm run check

@@ -1,0 +1,80 @@
+name: Release
+
+# Builds the installers and publishes them as a DRAFT GitHub Release when a version tag is pushed:
+#
+#     git tag v1.0.0 && git push origin v1.0.0
+#
+# Each installer is built on its own native runner — electron-builder cannot make a macOS .dmg from
+# Windows or Linux. macOS runners are free for public repositories.
+#
+# The result is a draft: review it, add the unsigned-app install notes, then publish. Tests already
+# ran in ci.yml on the commit; this workflow only packages.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+# Never cancel a half-finished release. CI cancels in-progress runs; a release must not.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One platform failing should not throw away the others' installers.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            run: npm run build:win     # NSIS setup .exe + portable .exe (x64)
+          - os: macos-latest
+            run: npm run build:mac     # .dmg for arm64 and x64
+          - os: ubuntu-latest
+            run: npm run build:linux   # .AppImage (x64)
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Build installers
+        run: ${{ matrix.run }}
+
+      # Only the files a person would download. electron-builder also emits .yml and .blockmap
+      # sidecars for auto-update, which this app does not use, and the macOS .zip alongside the
+      # .dmg — two near-identical assets per architecture for no benefit.
+      - name: Upload installers
+        uses: actions/upload-artifact@v6
+        with:
+          name: installers-${{ matrix.os }}
+          if-no-files-found: error
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
+
+  release:
+    name: draft GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download installers
+        uses: actions/download-artifact@v7
+        with:
+          path: dist
+          pattern: installers-*
+          merge-multiple: true
+
+      # --repo is required: this job never checks out, so gh has no remote to infer from.
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --draft --generate-notes --repo "$GITHUB_REPOSITORY"

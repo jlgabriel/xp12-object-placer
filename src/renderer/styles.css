@@ -751,3 +751,8 @@ button.primary:disabled {
   display: block;
   object-fit: contain;
 }
+
+.inspector-actions {
+  display: flex;
+  gap: 8px;
+}
