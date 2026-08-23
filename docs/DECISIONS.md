@@ -346,3 +346,61 @@ dangerous judgement it makes, and it now requires the one field that carries the
 `tests/packContract.test.ts` holds all of this to **literal fixtures**, not to whatever the code
 currently produces. A test that builds its expectation by calling the code under test passes
 happily through a change of format, which is the change it exists to catch.
+
+---
+
+## D15 — XOP reads `apt.dat`, to move the map and for nothing else (2026-08-23)
+
+There is an **Airport** box beside the coordinate box. Type a code or a name, pick a match, and the
+map flies there. The list is built by reading the `apt.dat` files of the user's own installation —
+X-Plane's Global Airports plus any pack in `Custom Scenery` that carries one.
+
+**Why:** requested by the author, whose words were *"solo quiero que sea un rápido buscador de
+aeropuertos para poder agregar objetos en este, nada más"*. Most people decorating scenery are
+decorating an airport, and before this the only way to get to one was to look its latitude up
+somewhere else and paste it in. The tool was asking the user to do arithmetic to reach the place
+they had already named.
+
+### This does not reopen D2, and here is the line
+
+D2 says XOP does not build airports, and it still does not. The distinction is not "does it know
+the word ICAO" — it is **what it writes**. XOP writes overlays. It has never written an `apt.dat`
+and never will; this reads one, and only:
+
+- the header row of a land airport, seaplane base or heliport (`1`, `16`, `17`) — the identifier
+  and the name;
+- `1302 icao_code`, so a field whose row identifier is `XEN001Z` is findable as `ENHO`;
+- a coordinate, from runway ends, helipad centres, startup locations, or `1302 datum_lat`/`_lon`.
+
+**Runways, taxiways, pavement, signs, frequencies, parking, lighting and every other row are not
+read, and adding one is not a small change.** Nothing about an airport enters the project model, the
+`.xop` file or the exported pack. The map draws no airport layer, no runway outline, no marker — the
+box is a camera move and leaves no trace. Picking an airport does not make the document dirty,
+because looking is not editing.
+
+The test of any future request against this: *would it write, or draw, or store anything about an
+airport?* If yes, it is D2 and the answer is no.
+
+### The user's own files, not a bundled list
+
+The same reasoning as D7. A bundled airport list would be data shipped inside XOP, would go stale,
+and would be **wrong for the person using it**: measured on the development installation, the packs
+in `Custom Scenery` add 56 airports the global file does not have at all — 36 flying-boat sealanes,
+18 Antarctic stations including the South Pole, and a helipad on the Burj Al Arab — and replace 42
+more with the pack author's version. Reading the installation gets the airports the user actually
+has, in the priority order `scenery_packs.ini` already defines, and ships nothing.
+
+### The coordinate comes from the geometry, not from the datum
+
+An airport can publish its own reference point, and that is the obvious thing to use. It is wrong
+often enough to matter: **270 of the 17 045 airports that publish a datum put it more than 5 km
+from their own runways**, with sign errors and pasted-over fields, and nothing marks them. The
+runways are self-consistent, and all 38 888 airports have some geometry. So the box aims at the
+middle of the field, and the datum is only a fallback for a pack that has nothing else.
+
+### What it costs, measured
+
+2.6 seconds to read 380 MB the first time, cached afterwards as 2.9 MB in `userData` and rebuilt
+only when the files behind it change. It runs in the background while the rest of the application
+carries on, and the box says it is still reading. Searching the resulting 38 944 airports takes
+1–3 ms per keystroke.

@@ -8,6 +8,7 @@ import type {
   XopApi,
 } from '../../shared/api.js';
 import type { Project } from '../../core/project/project.js';
+import type { Airport } from '../../core/airports/aptDat.js';
 import type { GroundBox } from '../../core/model.js';
 import { DEFAULT_PACK_NAME } from '../../core/export/packName.js';
 
@@ -137,12 +138,36 @@ const SNAPSHOT: CatalogSnapshot = {
  *   ?state=no-catalog  chosen installation, nothing scanned yet
  *   ?state=scanning    mid-scan
  *   ?state=placed      the editor with objects already on the map (see preview.tsx)
+ *   ?state=no-airports the editor with no readable apt.dat, so the airport box can say so
  *   (default)          the catalog
  */
-export type StubState = 'first-run' | 'no-catalog' | 'scanning' | 'catalog' | 'placed';
+export type StubState =
+  | 'first-run'
+  | 'no-catalog'
+  | 'scanning'
+  | 'catalog'
+  | 'placed'
+  | 'no-airports';
 
 /** The same entries the preview seeds placements from, so the two never drift apart. */
 export const STUB_ENTRIES: readonly CatalogEntry[] = ENTRIES;
+
+/**
+ * A handful of airports, chosen for the cases that make the box look wrong rather than for coverage.
+ *
+ * An accented name that has to be findable typed flat; codes sharing a prefix, so the prefix tier
+ * has something to sort; a field whose real ICAO code is not its row identifier; a heliport carrying
+ * `[H]` in its name the way the real file does; and a name long enough to need truncating.
+ */
+const AIRPORTS: readonly Airport[] = [
+  { id: 'SCEL', name: 'Arturo Benítez Intl', lat: -33.394442, lon: -70.793803 },
+  { id: 'SCTB', name: 'Eulogio Sánchez', lat: -33.456944, lon: -70.547222 },
+  { id: 'SCSE', name: 'La Florida', lat: -29.916389, lon: -71.199444 },
+  { id: 'LFPG', name: 'Paris - Charles De Gaulle', lat: 49.009747, lon: 2.547819 },
+  { id: 'KSFO', name: 'San Francisco Intl', lat: 37.618806, lon: -122.375417 },
+  { id: 'XEN001Z', icao: 'ENHO', name: '[H] Hopen Station', lat: 76.5093, lon: 25.0136 },
+  { id: '5TE', name: 'Tetlin', lat: 63.133824, lon: -142.521934 },
+];
 
 /**
  * Packs the stubbed installation already has. Stateful on purpose: uninstalling one in the harness
@@ -253,8 +278,14 @@ export function installStubApi(state: StubState): void {
     selectInstallation: async () => INSTALLATION,
     browseForInstallation: async () => INSTALLATION,
 
-    getCatalog: async () => (state === 'catalog' || state === 'placed' ? SNAPSHOT : null),
+    getCatalog: async () =>
+      state === 'catalog' || state === 'placed' || state === 'no-airports' ? SNAPSHOT : null,
     rescanCatalog: async () => SNAPSHOT,
+
+    getAirports: async () => {
+      if (state === 'no-airports') throw new Error('no apt.dat could be read');
+      return AIRPORTS;
+    },
 
     exportPack: async (request) => {
       // One name fails, so the harness can reach the error path without a real installation. It is

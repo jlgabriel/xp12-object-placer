@@ -24,6 +24,8 @@ const api: XopApi = {
   getCatalog: () => ipcRenderer.invoke('xop:getCatalog'),
   rescanCatalog: () => ipcRenderer.invoke('xop:rescanCatalog'),
 
+  getAirports: () => ipcRenderer.invoke('xop:getAirports'),
+
   exportPack: (request) => ipcRenderer.invoke('xop:exportPack', request),
   listInstalledPacks: () => ipcRenderer.invoke('xop:listInstalledPacks'),
   uninstallPack: (packName) => ipcRenderer.invoke('xop:uninstallPack', packName),

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   insertSceneryPack,
   removeSceneryPack,
+  sceneryEntries,
   sceneryPackLine,
 } from '../src/core/install/sceneryPacksIni.js';
 
@@ -148,5 +149,38 @@ describe('removeSceneryPack', () => {
       'SCENERY_PACK *GLOBAL_AIRPORTS*\nSCENERY_PACK Custom Scenery/Santiago Extra/',
     );
     expect(removeSceneryPack(similar, 'Santiago').changed).toBe(false);
+  });
+});
+
+/**
+ * Reading the file, rather than editing it. The airport index depends on this: two packs can define
+ * the same airport and the order in here is what decides which one X-Plane actually uses.
+ */
+describe('sceneryEntries', () => {
+  it('lists the entries in file order, with the marker in its place', () => {
+    const entries = sceneryEntries(INI);
+    expect(entries.map((entry) => (entry.kind === 'pack' ? entry.path : '*GLOBAL_AIRPORTS*'))).toEqual([
+      'Custom Scenery/Aerosoft - LFMN Nice Cote d Azur X',
+      'Custom Scenery/X-Plane Airports - EGPR Barra',
+      '*GLOBAL_AIRPORTS*',
+      'Custom Scenery/X-Plane Landmarks - Paris',
+      'Custom Scenery/X-Codr Designs Library',
+      'D:/Simuladores/XPlane Map Enhancement Base/XPME_South_America',
+    ]);
+    expect(entries.every((entry) => entry.enabled)).toBe(true);
+  });
+
+  it('reports a disabled pack rather than dropping it', () => {
+    const entries = sceneryEntries(
+      ['SCENERY_PACK_DISABLED Custom Scenery/Off/', 'SCENERY_PACK *GLOBAL_AIRPORTS*'].join('\n'),
+    );
+    expect(entries).toEqual([
+      { kind: 'pack', path: 'Custom Scenery/Off', enabled: false },
+      { kind: 'global-airports', enabled: true },
+    ]);
+  });
+
+  it('ignores everything that is not a scenery line', () => {
+    expect(sceneryEntries(['I', '1000 Version', 'SCENERY', '', '# a note'].join('\n'))).toEqual([]);
   });
 });

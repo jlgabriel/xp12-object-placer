@@ -8,14 +8,16 @@ import { dsfTileOf, tilePath } from '../core/dsf/tile.js';
 import { ExportDialog } from './ExportDialog.js';
 import { createDocumentCommands } from './documentCommands.js';
 import { forgetThumbnails, ObjectThumbnail } from './thumbnails/ObjectThumbnail.js';
+import { AirportSearch } from './AirportSearch.js';
 import type { PlacedObject } from '../core/model.js';
 
 /**
- * M1b: the catalog, the map, and one object between them.
+ * The catalog, the map, and one object between them.
  *
  * The shape of the screen follows the job. Pick something on the left, click where it goes, turn it
- * against the imagery until it looks right, and see on the right what will be written. Nothing here
- * asks which airport you are working on, and nothing ever will (docs/DECISIONS.md D2).
+ * against the imagery until it looks right, and see on the right what will be written. There is a
+ * box for going to an airport, because that is where most people want to stand; there is nothing
+ * that asks which airport you are *editing*, and there never will be (docs/DECISIONS.md D2, D15).
  */
 export function App(): React.JSX.Element {
   const [version, setVersion] = useState('');
@@ -27,6 +29,8 @@ export function App(): React.JSX.Element {
   const [catalog, setCatalog] = useState<CatalogSnapshot | null>(null);
   const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Bumped by Rescan, so anything else read off the installation gets re-read with it. */
+  const [rescans, setRescans] = useState(0);
 
   const dirty = useEditor((state) => state.dirty);
   const documentName = useEditor((state) => state.documentName);
@@ -133,6 +137,41 @@ export function App(): React.JSX.Element {
     editorStore.getState().setCatalog(catalog?.entries ?? []);
   }, [catalog]);
 
+  /**
+   * Fetch the airports for whichever installation is in use.
+   *
+   * In the background, deliberately: the first read of a 380 MB `apt.dat` takes a couple of seconds
+   * and nothing on the screen depends on it. The box says it is still reading, and everything else —
+   * the catalog, the map, placing objects — carries on meanwhile.
+   *
+   * Keyed on the installation because the list *is* the installation: a different X-Plane is a
+   * different set of airports, and the release install and the beta will not agree. And on the
+   * rescan counter, because "read my installation again" means all of it — a scenery pack installed
+   * while the window was open brings airports as well as objects, and main decides for itself
+   * whether anything actually changed.
+   */
+  const installationPath = installation?.usable === true ? installation.path : null;
+  useEffect(() => {
+    if (installationPath === null) return;
+    let live = true;
+    editorStore.getState().setAirportsStatus('loading');
+    void window.xop.getAirports().then(
+      (airports) => {
+        if (live) editorStore.getState().setAirports(airports);
+      },
+      (cause: unknown) => {
+        // Not raised to the error bar. Nothing the user asked for has failed — they can still type
+        // a coordinate — and an alarm about a feature they have not reached yet is noise. The box
+        // says so where the answer would have appeared, and main has already logged the reason.
+        if (live) editorStore.getState().setAirportsStatus('failed');
+        console.warn('airports could not be read', cause);
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [installationPath, rescans]);
+
   const run = async (work: () => Promise<void>): Promise<void> => {
     setError(null);
     try {
@@ -188,6 +227,7 @@ export function App(): React.JSX.Element {
       setProgress({ phase: 'libraries', done: 0, total: 0 });
       setCatalog(await window.xop.rescanCatalog());
       forgetThumbnails();
+      setRescans((n) => n + 1);
       setProgress(null);
     });
 
@@ -496,7 +536,10 @@ function Stage(): React.JSX.Element {
             </button>
           ))}
         </div>
-        <GoTo />
+        <div className="mapbar-go">
+          <AirportSearch />
+          <GoTo />
+        </div>
       </div>
 
       {placing !== null && (
@@ -514,9 +557,9 @@ function Stage(): React.JSX.Element {
 /**
  * Jump the map to a coordinate.
  *
- * The only "go to" XOP has, and deliberately so: an ICAO box would mean reading airport data, and
- * the moment the app knows about airports it starts becoming a worse WED (D2). A latitude and a
- * longitude are geography, which is the thing this tool is actually about.
+ * The other half of getting somewhere, and the half that answers everywhere the airport box cannot:
+ * a ridge, a city block, a field with no name. It zooms closer than the airport box does, because a
+ * coordinate is a place you already know and an airport is a place you want to see the whole of.
  */
 function GoTo(): React.JSX.Element {
   const [text, setText] = useState('');

@@ -434,6 +434,10 @@ button.danger:hover {
 .mapbar {
   display: flex;
   align-items: center;
+  /* Wraps rather than clips. The window may be as narrow as 900px, and with both side panels open
+     that leaves the map about 240px wide — at which point the two "go somewhere" boxes belong on a
+     second line. A shorter map is a fair price; a half-cut input is not. */
+  flex-wrap: wrap;
   gap: 10px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--line);
@@ -450,14 +454,21 @@ button.danger:hover {
   color: var(--accent);
 }
 
-.goto {
+/* The two ways of getting somewhere, kept together and pushed to the right. */
+.mapbar-go {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 12px;
   margin-left: auto;
 }
 
+.goto {
+  display: flex;
+  gap: 6px;
+}
+
 .goto input {
-  width: 200px;
+  width: 180px;
   padding: 5px 8px;
   background: #12171d;
   color: var(--text);
@@ -468,6 +479,81 @@ button.danger:hover {
 
 .goto input.bad {
   border-color: var(--warn);
+}
+
+.airport {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.airport-label {
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+/* The anchor the dropdown hangs from. */
+.airport-box {
+  position: relative;
+}
+
+.airport-input {
+  width: 190px;
+  padding: 5px 8px;
+  background: #12171d;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.airport-input:disabled {
+  color: var(--dim);
+}
+
+.airport-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  /* Wider than the box: a code is four characters and a name is not, and a list of truncated
+     airport names is a list you have to guess at. */
+  min-width: 340px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  /* Above the map. Leaflet's own panes stop well below this, and the arming banner sits at 1000. */
+  z-index: 1200;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  box-shadow: 0 8px 20px #0008;
+}
+
+.airport-option {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.airport-option.on {
+  background: #1f2a35;
+}
+
+.airport-code {
+  flex: none;
+  width: 62px;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color: var(--accent);
+}
+
+.airport-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .xop-map {

@@ -31,6 +31,12 @@ Under D4 both projects are GPL-3.0, so this is a copy, with attribution in the f
   knows about the Earth, not about Aerofly, which is what made it portable.
 - `arrange.ts` — row axis, along/cross projection, line-up and even-spacing. ~135 lines. **Not taken
   yet**; it will be, when XOP grows the arrange tools.
+- `src/core/airports/search.ts` — the typeahead's three tiers (code exact, code prefix, name
+  substring) and the accent folding that lets "benitez" find *Benítez*. **Ported**, ~40 lines of
+  logic. It is about how people type, not about a simulator. What did **not** come across is where
+  the airports come from: PCT ships a list of 7 845 Aerofly airports as data; XOP reads the 38 944
+  in the user's own installation instead (D7, D15), which is also why XOP needs a prepared index
+  and PCT does not.
 
 `footprint.ts` was on this list at the start of the project and **did not survive contact**. PCT's
 version speaks Aerofly's axes (+Y north at direction 0, an origin-centred `scale_factor`, a
@@ -40,8 +46,8 @@ and a copy edited that heavily is a worse starting point than a rewrite — the 
 be describing the other simulator. XOP's `src/core/geo/footprint.ts` is written from the OBJ8 axes
 directly, and carries its own probe evidence.
 
-So what actually crossed is **~80 lines** out of a 20,000-line application, and saying so plainly is
-the point: what transfers between the two projects is judgement, not source.
+So what actually crossed is **~120 lines** out of a 20,000-line application, and saying so plainly
+is the point: what transfers between the two projects is judgement, not source.
 
 ## Taken: shapes worth copying, reimplemented
 

@@ -112,6 +112,45 @@ function refersTo(line: string, packFolder: string): { match: boolean; disabled:
   return { match: path.toLowerCase() === want.toLowerCase(), disabled };
 }
 
+/** One entry of the scenery order, in the order X-Plane reads it: highest priority first. */
+export type SceneryEntry =
+  /** X-Plane's own airports. Not a folder in `Custom Scenery` — the marker stands for them. */
+  | { readonly kind: 'global-airports'; readonly enabled: boolean }
+  /** A pack, by the path the file gives, relative to the X-Plane folder. */
+  | { readonly kind: 'pack'; readonly path: string; readonly enabled: boolean };
+
+/**
+ * Everything the file lists, in order, switched on or off.
+ *
+ * Order is the whole reason to read this file rather than just listing `Custom Scenery`: when two
+ * packs define the same airport, the one listed first is the one X-Plane uses. The disabled entries
+ * come back too, and they matter as much as the enabled ones — a caller that also looks in the
+ * directory needs to know which folders the user has deliberately switched off, or it will helpfully
+ * put them back.
+ *
+ * The paths come back as the file spells them, minus a trailing slash. They are not resolved,
+ * checked or trusted here — this file is text somebody else writes, and turning one of its lines
+ * into a real path is the caller's job, with `containedJoin`.
+ */
+export function sceneryEntries(text: string): SceneryEntry[] {
+  const entries: SceneryEntry[] = [];
+  for (const raw of readShape(text).lines) {
+    const trimmed = raw.trim();
+    const enabled = trimmed.startsWith(`${ENABLED} `);
+    const disabled = trimmed.startsWith(`${DISABLED} `);
+    if (!enabled && !disabled) continue;
+
+    const value = trimmed.slice((enabled ? ENABLED : DISABLED).length).trim();
+    if (value === GLOBAL_AIRPORTS) {
+      entries.push({ kind: 'global-airports', enabled });
+      continue;
+    }
+    const path = value.replace(/\\/g, '/').replace(/\/+$/, '');
+    if (path !== '') entries.push({ kind: 'pack', path, enabled });
+  }
+  return entries;
+}
+
 /**
  * Put a pack into the file, at the top of the overlay tier.
  *

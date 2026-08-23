@@ -6,6 +6,7 @@
  * else would make the sandbox decorative.
  */
 
+import type { Airport } from '../core/airports/aptDat.js';
 import type { GroundBox, PlacedObject } from '../core/model.js';
 import type { Project } from '../core/project/project.js';
 import type { DdsFormat } from '../core/dds/dds.js';
@@ -202,6 +203,15 @@ export interface XopApi {
   rescanCatalog(): Promise<CatalogSnapshot>;
   /** Progress during a rescan. Returns an unsubscribe function. */
   onScanProgress(listener: (progress: ScanProgress) => void): () => void;
+
+  /**
+   * Every airport in the chosen installation — a code, a name and a place, and nothing else.
+   *
+   * For moving the map and for nothing else (D15). Built by reading the installation's `apt.dat`
+   * files the first time it is asked for, which takes a couple of seconds, and cached after that.
+   * The renderer asks once and keeps the answer.
+   */
+  getAirports(): Promise<readonly Airport[]>;
 
   /**
    * Write the placed objects into the chosen installation as a scenery pack, and add its line to

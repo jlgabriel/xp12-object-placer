@@ -15,6 +15,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } f
 import { z } from 'zod';
 import { describeInstallation, findInstallations, isInstallation } from '../node/findInstallations.js';
 import { readCachedCatalog, readCachedObjectFiles } from './catalogCache.js';
+import { loadAirports } from './airportCache.js';
 import { clearThumbnails, readThumbnail, writeThumbnail } from './thumbnailCache.js';
 import { GeometryError, readObjectGeometry } from '../node/objectGeometry.js';
 import { runScan, ScanError } from './runScan.js';
@@ -44,6 +45,7 @@ import {
   saveProjectAs as saveProjectAsFile,
   setDirty,
 } from './projectFile.js';
+import type { Airport } from '../core/airports/aptDat.js';
 import type {
   CatalogSnapshot,
   DocumentState,
@@ -257,6 +259,16 @@ export function registerIpc(): void {
     objectFiles.delete(installation);
     clearThumbnails(userData, installation);
     return snapshot;
+  });
+
+  handle('xop:getAirports', async (): Promise<readonly Airport[]> => {
+    const installation = requireInstallation(userData);
+    const started = Date.now();
+    const airports = await loadAirports(userData, installation);
+    // Logged because this is the one operation whose cost depends entirely on how much scenery the
+    // user has installed, and the first report about it will be somebody saying it felt slow.
+    logInfo(`airports ready: ${airports.length} from this installation in ${Date.now() - started} ms`);
+    return airports;
   });
 
   handle('xop:exportPack', (_event, raw: unknown): ExportResult => {

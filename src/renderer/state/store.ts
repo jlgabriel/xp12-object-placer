@@ -16,6 +16,8 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import type { LonLat, PlacedObject } from '../../core/model.js';
 import { destination, normalizeDegrees, wrapLon } from '../../core/geo/geo.js';
 import type { CatalogEntry } from '../../shared/api.js';
+import type { Airport } from '../../core/airports/aptDat.js';
+import { buildAirportIndex, EMPTY_AIRPORT_INDEX, type AirportIndex } from '../../core/airports/search.js';
 import {
   DEFAULT_CAMERA,
   newProject,
@@ -29,10 +31,39 @@ import {
  *  actually on the ground, and street tiles rarely show the apron you are decorating. */
 export type TileProviderId = 'esri' | 'osm';
 
+/**
+ * How close the map goes when the airport box picks somewhere.
+ *
+ * Wide enough to frame a whole field rather than land on one taxiway: at this zoom a thousand
+ * pixels of map is about eight kilometres of ground, which holds the longest runway anyone has
+ * built and still shows what is next to it. Typing a coordinate is a different intention — you know
+ * exactly where you meant — so that box keeps its tighter zoom.
+ */
+export const AIRPORT_ZOOM = 14;
+
+/** Being read from the installation, ready to search, or it could not be read. */
+export type AirportsStatus = 'loading' | 'ready' | 'failed';
+
 export interface EditorState {
   readonly objects: readonly PlacedObject[];
   /** The catalog, by virtual path. The map reads footprints out of it. */
   readonly catalogIndex: ReadonlyMap<string, CatalogEntry>;
+  /**
+   * The installation's airports, ready to search.
+   *
+   * Reference data, like the catalog: read from the user's own `apt.dat` files, never edited, and
+   * no part of any document. It exists so the map can be told "take me to SCEL" and for nothing
+   * else (D15).
+   */
+  readonly airports: AirportIndex;
+  /**
+   * Where that list is up to.
+   *
+   * Reading it means reading every `apt.dat` in the installation, which is a couple of seconds the
+   * first time. The box has to be able to say so, and to say when it could not be read at all —
+   * otherwise "no airports here" and "not finished looking" are the same empty dropdown.
+   */
+  readonly airportsStatus: AirportsStatus;
   readonly selection: string | null;
   /** Virtual path of the object armed for placement, or null. */
   readonly placing: string | null;
@@ -75,6 +106,8 @@ export interface EditorState {
   readonly documentEpoch: number;
 
   setCatalog(entries: readonly CatalogEntry[]): void;
+  setAirports(airports: readonly Airport[]): void;
+  setAirportsStatus(status: AirportsStatus): void;
   arm(virtualPath: string | null): void;
   placeAt(position: LonLat): void;
   select(id: string | null): void;
@@ -140,6 +173,8 @@ export function createEditorStore(): EditorStore {
     subscribeWithSelector((set, get) => ({
       objects: [],
       catalogIndex: new Map(),
+      airports: EMPTY_AIRPORT_INDEX,
+      airportsStatus: 'loading',
       selection: null,
       placing: null,
       camera: DEFAULT_CAMERA,
@@ -160,6 +195,16 @@ export function createEditorStore(): EditorStore {
           catalogIndex: index,
           ...(placing !== null && !index.has(placing) ? { placing: null } : {}),
         });
+      },
+
+      setAirports(airports) {
+        // The searchable forms are worked out here, once, rather than on every keystroke: there are
+        // tens of thousands of these and folding a name for accent-insensitive matching is not free.
+        set({ airports: buildAirportIndex(airports), airportsStatus: 'ready' });
+      },
+
+      setAirportsStatus(status) {
+        set({ airportsStatus: status });
       },
 
       arm(virtualPath) {

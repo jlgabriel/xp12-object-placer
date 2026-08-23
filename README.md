@@ -10,10 +10,14 @@ duplicate them. Export a Custom Scenery pack.
 
 ## What it is not
 
-**XP Object Placer does not build airports.** No `apt.dat`, no runways, no taxiways, no parking, no
-ICAO codes. [WED](https://developer.x-plane.com/tools/worldeditor/) already builds airports and it
-is excellent at it. XOP does one thing WED makes laborious: putting objects on the ground, fast, by
-looking at a map.
+**XP Object Placer does not build airports.** It writes no `apt.dat`, and it has no notion of a
+runway, a taxiway or a parking stand. [WED](https://developer.x-plane.com/tools/worldeditor/)
+already builds airports and it is excellent at it. XOP does one thing WED makes laborious: putting
+objects on the ground, fast, by looking at a map.
+
+It does *read* your `apt.dat` files, for exactly one purpose: so that typing `SCEL` sends the map to
+Santiago. That is a camera move — no airport is drawn on the map, kept in the project, or written
+anywhere. The line is [D15](docs/DECISIONS.md).
 
 Everything XOP produces is an **overlay** — it sits on top of whatever scenery is already there,
 default or custom.
@@ -55,6 +59,11 @@ The window opens on your X-Plane installation, reads its libraries, and gives yo
 actually has. Pick one, click the map, and it lands there: drawn as its real footprint, turned by
 its rotation, with a dot on the point the coordinate refers to. Drag the box to move it, drag the
 cyan grip to turn it against the satellite imagery.
+
+To get somewhere, type it. The **Airport** box takes a code or a name — `SCTB`, `benitez`,
+`san francisco` — and flies the map there, and the list is built from **your** installation, so it
+knows the fields a scenery pack you installed added. Or type a latitude and a longitude, for
+everywhere that is not an airport.
 
 Then **Install**: XOP writes the pack into `Custom Scenery` — one binary DSF per one-degree tile,
 written by XOP itself, with no external tool involved — and adds its own line to
