@@ -45,9 +45,9 @@ differently.
 >   mistake; there is no way past that dialog. Download 1.0.1 or newer. To rescue a copy you already
 >   have: `xattr -cr "/Applications/XP Object Placer.app"`.
 
-Only Windows has been run in anger. The macOS and Linux builds are made from the same source and
-the code knows where X-Plane keeps its records on each system, but nobody has yet used them for a
-day's work — if something is wrong there, an issue is welcome.
+Only Windows has been run in anger. The macOS build has been launched and looked at on Apple
+silicon as of 1.0.1 — it opens, and the first-run screen is correct — but no scenery has been built
+with it, and nobody has run the Linux one at all. If something is wrong there, an issue is welcome.
 
 ## What it does
 
