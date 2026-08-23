@@ -159,3 +159,43 @@ goes into the DSF is that bearing, with no offset and no sign flip.
   you clicked and where the building lands is visible instead of surprising.
 - If a future version wants to show a heading, it has to get the base heading from somewhere real —
   a user saying so, per object — and store it as what it is: a guess the user made.
+
+---
+
+## D10 — XOP writes the binary DSF itself; DSFTool is not a dependency (2026-08-22)
+
+`src/core/dsf/writeDsfBinary.ts` produces the file X-Plane loads. The application needs no external
+tool, and never shells out to one.
+
+**Why it has to write binary at all:** `DSF2TEXT` is DSFTool's interchange format, not one the
+simulator reads. Asked of `X-Plane.exe` directly — with controls, so that an absence could be read
+as an answer — `XPLNEDSF` and `sim/overlay` are present and `DSF2TEXT` and `OBJECT_DEF` are not
+(`reference/dsf-overlay.md`). Writing the text is half the job.
+
+**Why not just call DSFTool:** it does not ship with X-Plane. It is a separate download from
+Laminar's developer site, and most people who fly X-Plane have never heard of it. Requiring it would
+leave XOP unable to finish its one job on a machine that has the simulator installed — the same
+half-done installation D8 exists to refuse. It would also mean the privileged layer executing a
+third-party binary on a user-supplied path, which is a security surface this application does not
+otherwise have.
+
+**Why writing it ourselves is not reckless:** the shape was not taken from the specification. Probe
+H0b's text was compiled by DSFTool into a 460-byte overlay that X-Plane 12.4.3 loaded and flew, and
+that file was taken apart byte by byte — atoms, pool grid, plane encoding, command stream. The
+encoder reproduces it, including the two empty 32-bit pools whose purpose is not established,
+because twenty bytes is cheaper than finding out from a flight.
+
+It is checked three ways: unit tests against byte sequences read out of that flown file; DSFTool
+decompiling our own bytes back into the placement we meant, including a case with 300 definitions
+where the 8-bit command cannot say which one; and probe H8, which puts a pack we wrote and a pack
+DSFTool wrote side by side in the simulator with a positive control between them.
+
+**Consequences:**
+
+- A DSF is written once, in one place. `writeDsfText` stays, but as a debugging and golden-test
+  convenience, not as a step in the export.
+- The pool grid is eighths of a degree because that is what DSFTool uses, which keeps XOP's
+  placement precision identical to WED's (~21 cm). Do not "simplify" it to one pool per tile: that
+  is 1.7 m, and it would be invisible in a test and obvious in the simulator.
+- Both writers validate through the same `assertPlaceable`, so they can never disagree about what
+  they refuse.

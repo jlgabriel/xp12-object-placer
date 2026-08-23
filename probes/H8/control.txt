@@ -1,0 +1,15 @@
+I
+800
+DSF2TEXT
+
+PROPERTY sim/west -71
+PROPERTY sim/east -70
+PROPERTY sim/north -33
+PROPERTY sim/south -34
+PROPERTY sim/planet earth
+PROPERTY sim/overlay 1
+PROPERTY sim/creation_agent XOP-H8-control
+
+OBJECT_DEF lib/airport/hangars/arched/16x16/rusted_1.obj
+
+OBJECT 0 -70.785500000 -33.375100000 0.000000

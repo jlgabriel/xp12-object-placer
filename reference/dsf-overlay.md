@@ -48,6 +48,33 @@ PROPERTY sim/creation_agent XOP  <- free-form; how a pack identifies its author
 format specification page** and present in every overlay on disk — a good illustration of why the
 specification is a starting point and the disk is the authority.
 
+## ⚠️★★★ X-Plane does NOT read a text DSF — the file on disk must be binary ✅
+
+`DSF2TEXT` is DSFTool's interchange format, not a format the simulator loads. Asked of the
+simulator's own executable (`X-Plane.exe`, 91 MB, X-Plane 12.4.3), with controls chosen so that the
+absence of a string can actually be read:
+
+| string | occurrences | what it is |
+|---|---|---|
+| `XPLNEDSF` | **1** | the binary file cookie — control, proves the search works |
+| `sim/overlay` | **1** | a property the loader reads — control, proves properties are named in the binary |
+| `Earth nav data` | **7** | control |
+| `DSF2TEXT` | **0** | the text format's own marker |
+| `OBJECT_DEF` | **0** | the text format's object command |
+
+Two independent tokens of the text format are absent while two independent tokens of the binary
+format are present, so this reads as an answer rather than as a failed search — the argument from
+absence has controls under it. (Same technique as Aerofly's `.exe`-as-vocabulary-oracle, and it
+saved a flight here.)
+
+**Consequence for XOP:** writing the text is half the job. Something has to turn it into a binary
+DSF before X-Plane will look at it — either DSFTool, which the user would have to obtain separately
+(it is not shipped with X-Plane), or an encoder of our own. See `src/core/dsf/`.
+
+The first byte-level fact, read off a real file: a binary DSF opens with the 8-byte ASCII cookie
+`XPLNEDSF`, then a little-endian `uint32` version of `1`, then the atom stream — whose first atom ID
+reads `DAEH` on disk, i.e. `HEAD` with the four bytes reversed.
+
 ## Placing an object ✅
 
 ```
