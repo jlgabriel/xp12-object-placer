@@ -125,6 +125,24 @@ const LINE_BREAK = /\r\n|\r|\n/;
 /** ⚠️ Fields are TAB-delimited in stock objects. Splitting on a literal space finds nothing. */
 const FIELDS = /\s+/;
 
+/**
+ * A copy of `s` that does not hold the text it was cut from alive.
+ *
+ * V8 represents a slice of a long string as a pointer into the original rather than as a copy. So a
+ * thirty-character texture path taken out of a 200 KB `.obj` keeps all 200 KB — and the catalog
+ * scanner keeps one such path per object, for as long as the scan runs. On a 34 899-object
+ * installation that came to 3.8 GB of heap: the scan died around 31 500 objects, and the only thing
+ * the app could say about it was "exit code 5". (OldFartMike and HenryHDF, x-plane.org, 1.0.1.)
+ *
+ * Concatenating first forces a fresh string, so what outlives the parse is the path and nothing
+ * else. Measured, because which idioms work is not obvious: this one, `split('').join('')` and a
+ * `JSON` round-trip all detach; `normalize()` does not — with nothing to normalise it hands back
+ * the very same slice. tests/obj8.test.ts holds the parser to it.
+ */
+function detached(s: string): string {
+  return (' ' + s).slice(1);
+}
+
 interface Range {
   readonly offset: number;
   readonly count: number;
@@ -219,10 +237,12 @@ export function parseObj8(text: string, options: Obj8ParseOptions = {}): Obj8Geo
       // TEXTURE_DRAPED_NORMAL takes a leading numeric argument before the path.
       const value = f.length > 2 && Number.isFinite(Number(f[1])) ? f[2] : f[1];
       if (!value) continue;
-      if (keyword === 'TEXTURE') textures.albedo = value;
-      else if (keyword === 'TEXTURE_LIT') textures.lit = value;
-      else if (keyword === 'TEXTURE_NORMAL') textures.normal = value;
-      else if (keyword === 'TEXTURE_DRAPED') textures.draped = value;
+      // The only piece of the file that outlives this function — see `detached` above.
+      const path = detached(value);
+      if (keyword === 'TEXTURE') textures.albedo = path;
+      else if (keyword === 'TEXTURE_LIT') textures.lit = path;
+      else if (keyword === 'TEXTURE_NORMAL') textures.normal = path;
+      else if (keyword === 'TEXTURE_DRAPED') textures.draped = path;
       continue;
     }
 

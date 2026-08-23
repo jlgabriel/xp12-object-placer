@@ -1,5 +1,12 @@
+import v8 from 'node:v8';
+import vm from 'node:vm';
 import { describe, expect, it } from 'vitest';
-import { belowGround, parseObj8, sizeOf } from '../src/core/obj8/parse.js';
+import {
+  belowGround,
+  parseObj8,
+  sizeOf,
+  type Obj8Textures,
+} from '../src/core/obj8/parse.js';
 
 /**
  * Fixtures are built with real TAB separators on purpose. Stock X-Plane objects are tab-delimited,
@@ -258,4 +265,59 @@ describe('handing over the triangles', () => {
     expect([...short.normals].every(Number.isFinite)).toBe(true);
     expect([...short.uvs].every(Number.isFinite)).toBe(true);
   });
+});
+
+/**
+ * The bug that made a large installation unscannable.
+ *
+ * A texture path is thirty characters cut out of a file that can be hundreds of kilobytes, and V8
+ * represents such a cut as a pointer into the original rather than as a copy. The scanner keeps one
+ * path per object, so on a 34 899-object installation it was keeping 34 899 whole `.obj` files:
+ * 3.8 GB of heap, and a V8 out-of-memory at around 31 500 objects that the app could only report as
+ * "exit code 5" (OldFartMike and HenryHDF, x-plane.org, 1.0.1). Juan's own installation is 3 837
+ * objects, which fits, which is why every test and every scan we ran passed.
+ *
+ * There is no way to ask a string whether it is a slice, so this weighs the heap. The two outcomes
+ * are 60 MB apart, not 6 — a threshold in the middle is not a close call.
+ */
+describe('what a parsed object keeps alive', () => {
+  /** `--expose-gc` without a runner flag, so this test needs nothing of the other 300. */
+  function forceGc(): () => void {
+    v8.setFlagsFromString('--expose-gc');
+    const gc = vm.runInNewContext('gc') as () => void;
+    v8.setFlagsFromString('--no-expose-gc');
+    return () => {
+      gc();
+      gc();
+    };
+  }
+
+  /** One object of about 200 KB, distinct from every other so no two can share a parent string. */
+  function bigObject(seed: number): string {
+    const vertices: string[] = [];
+    for (let i = 0; i < 8000; i++) {
+      vertices.push(`VT${T}${seed}.${i}${T}0${T}0${T}0${T}1${T}0${T}0${T}0`);
+    }
+    return obj([`TEXTURE${T}textures/building_${seed}_albedo.png`, ...vertices]);
+  }
+
+  it('keeps the texture path and not the file it came from', () => {
+    const collect = forceGc();
+    const held: Obj8Textures[] = [];
+
+    collect();
+    const before = process.memoryUsage().heapUsed;
+    for (let seed = 0; seed < 500; seed++) held.push(parseObj8(bigObject(seed)).textures);
+    collect();
+    const grown = process.memoryUsage().heapUsed - before;
+
+    // The paths themselves are real and correct — this is not passing by parsing nothing.
+    expect(held).toHaveLength(500);
+    expect(held[0]!.albedo).toBe('textures/building_0_albedo.png');
+    expect(held[499]!.albedo).toBe('textures/building_499_albedo.png');
+
+    // 500 objects × ~290 KB is well over 100 MB held if the paths are slices, and a rounding error
+    // if they are not. Twenty leaves the heap room to breathe without leaving room for the bug.
+    expect(grown / 1024 / 1024).toBeLessThan(20);
+  }, 30_000);
 });
