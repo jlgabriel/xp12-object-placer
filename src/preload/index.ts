@@ -10,6 +10,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { XopApi, ScanProgress } from '../shared/api.js';
 
 const SCAN_PROGRESS = 'xop:scanProgress';
+const SAVE_BEFORE_CLOSE = 'xop:saveBeforeClose';
 
 const api: XopApi = {
   getVersion: () => ipcRenderer.invoke('xop:getVersion'),
@@ -25,6 +26,19 @@ const api: XopApi = {
   exportPack: (request) => ipcRenderer.invoke('xop:exportPack', request),
   listInstalledPacks: () => ipcRenderer.invoke('xop:listInstalledPacks'),
   uninstallPack: (packName) => ipcRenderer.invoke('xop:uninstallPack', packName),
+
+  newProject: () => ipcRenderer.invoke('xop:newProject'),
+  openProject: () => ipcRenderer.invoke('xop:openProject'),
+  saveProject: (project) => ipcRenderer.invoke('xop:saveProject', project),
+  saveProjectAs: (project) => ipcRenderer.invoke('xop:saveProjectAs', project),
+  markDirty: (dirty) => ipcRenderer.invoke('xop:markDirty', dirty),
+  closeWindow: () => ipcRenderer.invoke('xop:closeWindow'),
+
+  onSaveBeforeClose: (listener: () => void) => {
+    const handler = (): void => listener();
+    ipcRenderer.on(SAVE_BEFORE_CLOSE, handler);
+    return () => ipcRenderer.removeListener(SAVE_BEFORE_CLOSE, handler);
+  },
 
   onScanProgress: (listener: (progress: ScanProgress) => void) => {
     // The payload is re-read off the event rather than forwarded blind, so the renderer only ever

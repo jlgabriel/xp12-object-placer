@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CatalogEntry, CatalogSnapshot, Installation, ScanProgress } from '../shared/api.js';
 import { MapView } from './map/MapView.js';
 import { PROVIDER_LABEL } from './map/tileProviders.js';
@@ -6,6 +6,7 @@ import { editorStore, useEditor } from './state/editorStore.js';
 import type { TileProviderId } from './state/store.js';
 import { dsfTileOf, tilePath } from '../core/dsf/tile.js';
 import { ExportDialog } from './ExportDialog.js';
+import { createDocumentCommands } from './documentCommands.js';
 import type { PlacedObject } from '../core/model.js';
 
 /**
@@ -23,7 +24,79 @@ export function App(): React.JSX.Element {
   const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const dirty = useEditor((state) => state.dirty);
+  const documentName = useEditor((state) => state.documentName);
+
   useEffect(() => window.xop.onScanProgress(setProgress), []);
+
+  const report = useCallback((cause: unknown): void => {
+    setError(cause instanceof Error ? cause.message : String(cause));
+  }, []);
+
+  const commands = useMemo(
+    () =>
+      createDocumentCommands({
+        store: editorStore,
+        api: window.xop,
+        confirm: (message) => window.confirm(message),
+      }),
+    [],
+  );
+
+  // Main keeps the title bar and the close guard honest, and neither of them can see this store.
+  useEffect(() => {
+    void window.xop.markDirty(dirty).catch(report);
+  }, [dirty, documentName, report]);
+
+  // The window is closing and the user chose Save. Closing only happens if the save actually
+  // lands: a cancelled file dialog leaves the window open, which is the right answer and needs no
+  // further message to arrange.
+  useEffect(
+    () =>
+      window.xop.onSaveBeforeClose(() => {
+        void commands
+          .save()
+          .then((saved) => {
+            if (saved) void window.xop.closeWindow();
+          })
+          .catch(report);
+      }),
+    [commands, report],
+  );
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      // A dialog over the map owns the keyboard while it is up — the same rule Delete already
+      // follows, and for the same reason.
+      if (editorStore.getState().modalOpen) return;
+
+      const key = event.key.toLowerCase();
+      const command =
+        key === 's'
+          ? event.shiftKey
+            ? commands.saveAs
+            : commands.save
+          : key === 'o'
+            ? commands.open
+            : key === 'n'
+              ? commands.newProject
+              : null;
+      if (!command) return;
+
+      event.preventDefault();
+      setError(null);
+      void Promise.resolve(command()).catch(report);
+    };
+
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [commands, report]);
+
+  const runCommand = (command: () => Promise<unknown>) => (): void => {
+    setError(null);
+    void command().catch(report);
+  };
 
   useEffect(() => {
     void (async () => {
@@ -79,6 +152,28 @@ export function App(): React.JSX.Element {
       <header>
         <strong>XP Object Placer</strong>
         <span className="version">{version}</span>
+
+        <span className="documents">
+          <button onClick={runCommand(commands.newProject)} title="New project (Ctrl+N)">
+            New
+          </button>
+          <button onClick={runCommand(commands.open)} title="Open a project (Ctrl+O)">
+            Open
+          </button>
+          <button onClick={runCommand(commands.save)} title="Save (Ctrl+S)">
+            Save
+          </button>
+          <button onClick={runCommand(commands.saveAs)} title="Save as (Ctrl+Shift+S)">
+            Save as
+          </button>
+        </span>
+
+        {/* The bullet is the unsaved mark, and it is the same one in the title bar, so the window
+            list and the window itself agree about whether there is work at risk. */}
+        <span className="document" title={dirty ? 'Unsaved changes' : 'Saved'}>
+          {documentName}
+          {dirty && <b aria-label="unsaved changes"> •</b>}
+        </span>
         {installation && (
           <span className="installation" title={installation.path}>
             {installation.path}

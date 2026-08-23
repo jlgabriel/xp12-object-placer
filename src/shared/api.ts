@@ -7,6 +7,7 @@
  */
 
 import type { GroundBox, PlacedObject } from '../core/model.js';
+import type { Project } from '../core/project/project.js';
 
 export interface Installation {
   readonly path: string;
@@ -87,7 +88,29 @@ export type SceneryPackPlacement =
 export interface ExportRequest {
   /** What the user typed. A name, not a path — main decides what folder that becomes. */
   readonly packName: string;
-  readonly objects: readonly PlacedObject[];
+  /**
+   * The whole project, not just its objects: the pack carries a copy of it, and sending the
+   * objects separately would be two sources for one fact.
+   */
+  readonly project: Project;
+}
+
+/**
+ * The open document, as the window title and the header show it.
+ *
+ * `path` is for display only. It travels renderer-ward and never back: main already knows where
+ * the project lives, and accepting a path from the renderer is the one thing this boundary exists
+ * to prevent.
+ */
+export interface DocumentState {
+  readonly name: string;
+  readonly path: string | null;
+  readonly dirty: boolean;
+}
+
+export interface OpenedProject {
+  readonly document: DocumentState;
+  readonly project: Project;
 }
 
 export interface ExportResult {
@@ -161,6 +184,31 @@ export interface XopApi {
 
   /** Remove a pack: its folder and its line. Main refuses any folder it did not write. */
   uninstallPack(packName: string): Promise<UninstallResult>;
+
+  /**
+   * The document. Every one of these says *what*, never *where* — main owns the path and draws
+   * every dialog, exactly as with installations.
+   */
+  newProject(): Promise<DocumentState>;
+  /** Open a picker and read the chosen project. Null when the user cancels; throws on a bad file. */
+  openProject(): Promise<OpenedProject | null>;
+  /** Save to the open file, asking where only if there is not one yet. Null when cancelled. */
+  saveProject(project: Project): Promise<DocumentState | null>;
+  /** Always asks where. Null when cancelled. */
+  saveProjectAs(project: Project): Promise<DocumentState | null>;
+  /** Tell main whether there is unsaved work, which is what the title and the close guard use. */
+  markDirty(dirty: boolean): Promise<DocumentState>;
+
+  /**
+   * Main is asking for a save because the window is closing and the user chose Save.
+   *
+   * The renderer answers by saving and then calling `closeWindow`. If the save is cancelled it
+   * simply does not call it, and the window stays open — which is the right outcome and needs no
+   * extra message to say so.
+   */
+  onSaveBeforeClose(listener: () => void): () => void;
+  /** Close for real, past the unsaved-work guard. */
+  closeWindow(): Promise<void>;
 }
 
 declare global {

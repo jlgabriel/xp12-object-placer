@@ -7,8 +7,9 @@
  */
 
 import { join } from 'node:path';
-import { app, BrowserWindow, session, shell } from 'electron';
+import { app, BrowserWindow, dialog, session, shell } from 'electron';
 import { registerIpc } from './ipc.js';
+import { documentName, isDirty } from './projectFile.js';
 
 /** electron-vite sets this in dev (the Vite renderer dev-server URL); undefined when packaged. */
 const RENDERER_URL = process.env['ELECTRON_RENDERER_URL'];
@@ -61,6 +62,41 @@ function createWindow(): void {
   win.on('page-title-updated', (event) => event.preventDefault());
 
   win.once('ready-to-show', () => win.show());
+
+  /**
+   * The unsaved-work guard.
+   *
+   * Closing the window is how the work is lost — there is no dialog in the way, the objects live
+   * only in the renderer, and the reflex to hit the X is faster than the thought that nothing has
+   * been saved yet.
+   *
+   * Save asks the renderer rather than saving from here, because main does not hold the project;
+   * the renderer does. If that save is then cancelled at the file dialog, the renderer simply never
+   * calls `closeWindow` and the window stays open — the right outcome, with no extra message
+   * needed to arrange it.
+   */
+  win.on('close', (event) => {
+    if (!isDirty()) return;
+    event.preventDefault();
+
+    const choice = dialog.showMessageBoxSync(win, {
+      type: 'warning',
+      buttons: ['Save', "Don't save", 'Cancel'],
+      defaultId: 0,
+      cancelId: 2,
+      title: 'Unsaved work',
+      message: `Save changes to ${documentName()}?`,
+      detail: 'Objects you have placed are only in this window until the project is saved.',
+    });
+
+    if (choice === 2) return;
+    // destroy() rather than close(), which would ask this same question again.
+    if (choice === 1) {
+      win.destroy();
+      return;
+    }
+    win.webContents.send('xop:saveBeforeClose');
+  });
 
   // External links open in the OS browser; the window itself never navigates away from the app.
   win.webContents.setWindowOpenHandler(({ url }) => {

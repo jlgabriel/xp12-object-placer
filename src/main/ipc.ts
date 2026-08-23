@@ -24,11 +24,29 @@ import {
   listInstalledPacks,
   uninstallPack,
 } from '../node/installPack.js';
-import { parseProject, touchProject } from '../core/project/project.js';
+import {
+  InvalidProjectError,
+  parseProject,
+  touchProject,
+  UnsupportedSchemaVersionError,
+  type Project,
+} from '../core/project/project.js';
+import {
+  documentName,
+  forgetProject,
+  getCurrentProjectPath,
+  isDirty,
+  openProject as openProjectFile,
+  saveProject as saveProjectFile,
+  saveProjectAs as saveProjectAsFile,
+  setDirty,
+} from './projectFile.js';
 import type {
   CatalogSnapshot,
+  DocumentState,
   ExportResult,
   Installation,
+  OpenedProject,
   InstalledPack,
   ScanProgress,
   UninstallResult,
@@ -249,5 +267,121 @@ export function registerIpc(): void {
       if (error instanceof InstallError) throw new UserFacingError(error.message);
       throw error;
     }
+  });
+
+  // ── The document ──────────────────────────────────────────────────────────
+  //
+  // The same rule as everything above: the renderer says *what*, main decides *where*. Not one of
+  // these accepts a path, and the path in DocumentState travels outward only, to be displayed.
+
+  const documentState = (): DocumentState => ({
+    name: documentName(),
+    path: getCurrentProjectPath(),
+    dirty: isDirty(),
+  });
+
+  /**
+   * Put the document in the title bar, and mark unsaved work with a bullet.
+   *
+   * The title is the only place an unsaved-work indicator costs nothing and is always visible —
+   * including when the window is not focused, which is exactly when somebody is about to close it
+   * by reflex.
+   */
+  const retitle = (event: IpcMainInvokeEvent): DocumentState => {
+    BrowserWindow.fromWebContents(event.sender)?.setTitle(
+      `${documentName()}${isDirty() ? ' •' : ''} — XP Object Placer ${__APP_VERSION__}`,
+    );
+    return documentState();
+  };
+
+  const PROJECT_FILTER = [
+    { name: 'XP Object Placer project', extensions: ['xop'] },
+    { name: 'All files', extensions: ['*'] },
+  ];
+
+  const pickToOpen = (event: IpcMainInvokeEvent) => async (): Promise<string | null> => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: 'Open a project',
+      filters: PROJECT_FILTER,
+      properties: ['openFile' as const],
+    };
+    const result = await (window
+      ? dialog.showOpenDialog(window, options)
+      : dialog.showOpenDialog(options));
+    return result.canceled ? null : (result.filePaths[0] ?? null);
+  };
+
+  const pickToSave = (event: IpcMainInvokeEvent) => async (): Promise<string | null> => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: 'Save project',
+      // Offer the open file when there is one, so Save As beside an existing project starts in the
+      // folder that project lives in rather than wherever the last unrelated dialog was.
+      defaultPath: getCurrentProjectPath() ?? `${documentName()}.xop`,
+      filters: PROJECT_FILTER,
+    };
+    const result = await (window
+      ? dialog.showSaveDialog(window, options)
+      : dialog.showSaveDialog(options));
+    return result.canceled ? null : (result.filePath ?? null);
+  };
+
+  /**
+   * Turn what the renderer sent into a project, or into a sentence somebody can read.
+   *
+   * It goes through the same door as a file off the disk. "The renderer owns this state" describes
+   * the honest case, and this layer is written for the other one.
+   */
+  const asProject = (raw: unknown): Project => {
+    try {
+      return parseProject(raw);
+    } catch (error) {
+      if (error instanceof UnsupportedSchemaVersionError || error instanceof InvalidProjectError) {
+        throw new UserFacingError(error.message);
+      }
+      throw new UserFacingError('that project does not make sense');
+    }
+  };
+
+  handle('xop:newProject', (event): DocumentState => {
+    forgetProject();
+    return retitle(event);
+  });
+
+  handle('xop:openProject', async (event): Promise<OpenedProject | null> => {
+    try {
+      const opened = await openProjectFile(pickToOpen(event));
+      if (!opened) return null;
+      return { document: retitle(event), project: opened.project };
+    } catch (error) {
+      if (error instanceof UnsupportedSchemaVersionError || error instanceof InvalidProjectError) {
+        throw new UserFacingError(error.message);
+      }
+      // A Zod failure here means a .xop whose shape is wrong. The user does not need the path
+      // through the schema that failed; they need to know the file is not one of ours.
+      throw new UserFacingError('that file is not a project this build can read');
+    }
+  });
+
+  handle('xop:saveProject', async (event, raw: unknown): Promise<DocumentState | null> => {
+    const written = await saveProjectFile(asProject(raw), pickToSave(event));
+    return written === null ? null : retitle(event);
+  });
+
+  handle('xop:saveProjectAs', async (event, raw: unknown): Promise<DocumentState | null> => {
+    const written = await saveProjectAsFile(asProject(raw), pickToSave(event));
+    return written === null ? null : retitle(event);
+  });
+
+  handle('xop:markDirty', (event, raw: unknown): DocumentState => {
+    setDirty(raw === true);
+    return retitle(event);
+  });
+
+  // destroy(), not close(): close() would fire the guard in index.ts again, and the user has
+  // already answered that question — this channel is only reached after they did.
+  handle('xop:closeWindow', (event): void => {
+    BrowserWindow.fromWebContents(event.sender)?.destroy();
   });
 }

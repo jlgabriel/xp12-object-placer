@@ -4,8 +4,10 @@ import type {
   ExportResult,
   Installation,
   InstalledPack,
+  DocumentState,
   XopApi,
 } from '../../shared/api.js';
+import type { Project } from '../../core/project/project.js';
 import type { GroundBox } from '../../core/model.js';
 import { DEFAULT_PACK_NAME } from '../../core/export/packName.js';
 
@@ -151,9 +153,63 @@ const installed: InstalledPack[] = [
   { packName: 'Valparaiso docks', writtenAt: '2026-08-19T22:41:00.000Z', fileCount: 3, xop: '0.1.0' },
 ];
 
+/**
+ * The harness's stand-in for a disk.
+ *
+ * Open answers with a believable project rather than nothing, because the screen worth checking is
+ * the one *after* a project is open — a stub that always cancels can only ever show the empty case.
+ */
+let savedTo: string | null = null;
+const doc = (name: string, path: string | null): DocumentState => ({ name, path, dirty: false });
+
+const STUB_PROJECT: Project = {
+  schemaVersion: 1,
+  app: 'xop',
+  name: 'Valparaiso docks',
+  createdAt: '2026-08-19T22:41:00.000Z',
+  modifiedAt: '2026-08-21T18:04:00.000Z',
+  camera: { lon: -71.6127, lat: -33.0392, zoom: 16 },
+  objects: [
+    {
+      id: 'obj-1',
+      libraryPath: 'lib/airport/hangars/arched/16x16/rusted_1.obj',
+      position: { lon: -71.6127, lat: -33.0392 },
+      rotation: 0,
+      label: 'rusted_1',
+    },
+    {
+      id: 'obj-2',
+      libraryPath: 'lib/airport/Common_Elements/Vehicles/Large_Fuel_Truck.obj',
+      position: { lon: -71.6125, lat: -33.0394 },
+      rotation: 45,
+      label: 'Large_Fuel_Truck',
+    },
+  ],
+};
+
 export function installStubApi(state: StubState): void {
   const api: XopApi = {
     getVersion: async () => '0.0.0-preview',
+
+    newProject: async () => {
+      savedTo = null;
+      return doc('Untitled', null);
+    },
+    openProject: async () => ({
+      document: doc('Valparaiso docks', 'C:/Users/you/Documents/Valparaiso docks.xop'),
+      project: STUB_PROJECT,
+    }),
+    saveProject: async () => {
+      savedTo ??= 'C:/Users/you/Documents/apron.xop';
+      return doc('apron', savedTo);
+    },
+    saveProjectAs: async () => {
+      savedTo = 'C:/Users/you/Documents/apron.xop';
+      return doc('apron', savedTo);
+    },
+    markDirty: async (dirty) => ({ name: 'apron', path: savedTo, dirty }),
+    closeWindow: async () => {},
+    onSaveBeforeClose: () => () => {},
 
     listInstallations: async () => [
       INSTALLATION,
@@ -186,7 +242,7 @@ export function installStubApi(state: StubState): void {
       // teaches the wrong thing about the screen it is standing in for, and this harness has
       // already caught one piece of text that lied.
       const tiles = new Set(
-        request.objects.map(
+        request.project.objects.map(
           (object) => `${Math.floor(object.position.lat)},${Math.floor(object.position.lon)}`,
         ),
       );
@@ -203,7 +259,7 @@ export function installStubApi(state: StubState): void {
           ...(tiles.size >= 3
             ? [`These objects span ${tiles.size} one-degree tiles, so the pack contains ${tiles.size} files.`]
             : []),
-          ...(request.objects.some((object) => object.libraryPath.startsWith('lib/some_library'))
+          ...(request.project.objects.some((object) => object.libraryPath.startsWith('lib/some_library'))
             ? [
                 'This installation has no lib/some_library_you_do_not_have/shed.obj — X-Plane will draw nothing there, and will not say so.',
               ]

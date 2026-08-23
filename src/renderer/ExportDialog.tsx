@@ -3,6 +3,7 @@ import type { ExportResult, InstalledPack } from '../shared/api.js';
 import { groupByTile } from '../core/dsf/tile.js';
 import { DEFAULT_PACK_NAME } from '../core/export/packName.js';
 import { editorStore, useEditor } from './state/editorStore.js';
+import { projectOf } from './state/store.js';
 
 /**
  * Installing into X-Plane, which is the step people get wrong.
@@ -48,7 +49,9 @@ export function ExportDialog({ onClose }: { onClose: () => void }): React.JSX.El
     setBusy(true);
     setError(null);
     try {
-      setResult(await window.xop.exportPack({ packName, objects }));
+      // The whole project, because the pack carries a copy of it — see planExport. Sending the
+      // objects on their own would let the scenery and that copy disagree.
+      setResult(await window.xop.exportPack({ packName, project: projectOf(editorStore.getState()) }));
       await refreshInstalled();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));

@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { createEditorStore } from '../src/renderer/state/store.js';
-import { DEFAULT_CAMERA } from '../src/core/project/project.js';
+import {
+  DEFAULT_CAMERA,
+  newProject,
+  parseProject,
+  UNTITLED,
+  type Project,
+} from '../src/core/project/project.js';
+import { projectOf } from '../src/renderer/state/store.js';
+import type { PlacedObject } from '../src/core/model.js';
 import type { CatalogEntry } from '../src/shared/api.js';
 
 const HANGAR: CatalogEntry = {
@@ -151,5 +159,145 @@ describe('the catalog and the camera', () => {
     store.getState().setCamera({ lon: 0, lat: 0, zoom: 18 });
     store.getState().goTo(SOMEWHERE);
     expect(store.getState().camera.zoom).toBe(18);
+  });
+});
+
+describe('unsaved work', () => {
+  it('starts clean and untitled', () => {
+    const store = createEditorStore();
+    expect(store.getState().dirty).toBe(false);
+    expect(store.getState().documentName).toBe(UNTITLED);
+  });
+
+  // Every one of these has to count, and the point of tracking it by subscription rather than by a
+  // line inside each action is that an action added later cannot forget. The one that forgets is
+  // the one that loses somebody's work quietly, because the close guard would let the window go.
+  it('counts placing, moving, rotating and deleting', () => {
+    for (const edit of [
+      (s: ReturnType<typeof armed>) => s.getState().placeAt(SOMEWHERE),
+      (s: ReturnType<typeof armed>) => {
+        s.getState().placeAt(SOMEWHERE);
+        s.getState().markSaved('saved');
+        s.getState().moveObject(s.getState().objects[0]!.id, { lon: 1, lat: 1 });
+      },
+      (s: ReturnType<typeof armed>) => {
+        s.getState().placeAt(SOMEWHERE);
+        s.getState().markSaved('saved');
+        s.getState().rotateObject(s.getState().objects[0]!.id, 90);
+      },
+      (s: ReturnType<typeof armed>) => {
+        s.getState().placeAt(SOMEWHERE);
+        s.getState().markSaved('saved');
+        s.getState().deleteObject(s.getState().objects[0]!.id);
+      },
+    ]) {
+      const store = armed();
+      edit(store);
+      expect(store.getState().dirty).toBe(true);
+    }
+  });
+
+  // Looking around is not editing. The camera has never counted as an edit in this store, and a
+  // bullet in the title bar for panning the map would teach people to ignore the bullet.
+  it('does not count panning, zooming or picking an object to place', () => {
+    const store = armed();
+    store.getState().setCamera({ lon: 5, lat: 5, zoom: 12 });
+    store.getState().goTo(SOMEWHERE, 17);
+    store.getState().arm(TRUCK.virtualPath);
+    store.getState().setTiles('osm');
+    expect(store.getState().dirty).toBe(false);
+  });
+
+  it('is clean again once saved', () => {
+    const store = armed();
+    store.getState().placeAt(SOMEWHERE);
+    store.getState().markSaved('SCEL apron');
+    expect(store.getState().dirty).toBe(false);
+    expect(store.getState().documentName).toBe('SCEL apron');
+  });
+});
+
+describe('opening a project into the store', () => {
+  const project = (objects: PlacedObject[]): Project => ({
+    ...newProject('2026-08-22T12:00:00.000Z'),
+    camera: { lon: -70.78, lat: -33.37, zoom: 17 },
+    objects,
+  });
+
+  const placed = (id: string): PlacedObject => ({
+    id,
+    libraryPath: HANGAR.virtualPath,
+    position: SOMEWHERE,
+    rotation: 0,
+  });
+
+  it('replaces the map and leaves nothing unsaved', () => {
+    const store = armed();
+    store.getState().placeAt(SOMEWHERE);
+
+    store.getState().loadProject(project([placed('obj-1'), placed('obj-2')]), 'Valparaiso');
+
+    expect(store.getState().objects).toHaveLength(2);
+    expect(store.getState().documentName).toBe('Valparaiso');
+    // A project you just opened has nothing unsaved in it — even though the objects did change,
+    // which is the case a naive "objects changed, so it is dirty" gets wrong.
+    expect(store.getState().dirty).toBe(false);
+  });
+
+  it('looks where the project was left', () => {
+    const store = armed();
+    store.getState().loadProject(project([]), 'Valparaiso');
+    expect(store.getState().camera).toEqual({ lon: -70.78, lat: -33.37, zoom: 17 });
+  });
+
+  // Without reseeding, the next object placed after opening obj-1..obj-3 is obj-1 again: two
+  // objects with one id, an ambiguous selection, and a map that diffs the wrong one.
+  it('resumes ids past the ones it loaded', () => {
+    const store = armed();
+    store.getState().loadProject(project([placed('obj-1'), placed('obj-2'), placed('obj-3')]), 'x');
+    store.getState().arm(HANGAR.virtualPath);
+    store.getState().placeAt(SOMEWHERE);
+
+    const ids = store.getState().objects.map((object) => object.id);
+    expect(ids).toEqual(['obj-1', 'obj-2', 'obj-3', 'obj-4']);
+    expect(new Set(ids).size).toBe(4);
+  });
+
+  it('editing an opened project marks it unsaved again', () => {
+    const store = armed();
+    store.getState().loadProject(project([placed('obj-1')]), 'x');
+    store.getState().deleteObject('obj-1');
+    expect(store.getState().dirty).toBe(true);
+  });
+
+  it('starting a new project empties the map and starts ids over', () => {
+    const store = armed();
+    store.getState().loadProject(project([placed('obj-1'), placed('obj-9')]), 'x');
+    store.getState().resetProject();
+
+    expect(store.getState().objects).toEqual([]);
+    expect(store.getState().documentName).toBe(UNTITLED);
+    expect(store.getState().dirty).toBe(false);
+
+    store.getState().arm(HANGAR.virtualPath);
+    store.getState().placeAt(SOMEWHERE);
+    expect(store.getState().objects[0]!.id).toBe('obj-1');
+  });
+});
+
+describe('the store as a project', () => {
+  it('is what gets written: the objects and where the map was looking', () => {
+    const store = armed();
+    store.getState().placeAt(SOMEWHERE);
+    store.getState().setCamera({ lon: 1, lat: 2, zoom: 15 });
+    store.getState().markSaved('apron');
+
+    const project = projectOf(store.getState());
+    expect(project.app).toBe('xop');
+    expect(project.name).toBe('apron');
+    expect(project.camera).toEqual({ lon: 1, lat: 2, zoom: 15 });
+    expect(project.objects).toEqual(store.getState().objects);
+    // It has to survive the reader it will meet on the way back in.
+    expect(() => parseProject(JSON.parse(JSON.stringify(project)))).not.toThrow();
   });
 });
