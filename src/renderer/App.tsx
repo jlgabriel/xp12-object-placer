@@ -5,6 +5,7 @@ import { PROVIDER_LABEL } from './map/tileProviders.js';
 import { editorStore, useEditor } from './state/editorStore.js';
 import type { TileProviderId } from './state/store.js';
 import { dsfTileOf, tilePath } from '../core/dsf/tile.js';
+import { ExportDialog } from './ExportDialog.js';
 import type { PlacedObject } from '../core/model.js';
 
 /**
@@ -176,11 +177,13 @@ function Editor({
   catalog: CatalogSnapshot;
   onRescan: () => void;
 }): React.JSX.Element {
+  const [exporting, setExporting] = useState(false);
   return (
     <main className="editor">
       <CatalogPanel catalog={catalog} onRescan={onRescan} />
       <Stage />
-      <PlacementPanel />
+      <PlacementPanel onExport={() => setExporting(true)} />
+      {exporting && <ExportDialog onClose={() => setExporting(false)} />}
     </main>
   );
 }
@@ -384,7 +387,7 @@ function GoTo(): React.JSX.Element {
   );
 }
 
-function PlacementPanel(): React.JSX.Element {
+function PlacementPanel({ onExport }: { onExport: () => void }): React.JSX.Element {
   const objects = useEditor((state) => state.objects);
   const selection = useEditor((state) => state.selection);
   const selected = objects.find((object) => object.id === selection) ?? null;
@@ -394,6 +397,16 @@ function PlacementPanel(): React.JSX.Element {
       <div className="panel-head">
         <h2>Placed</h2>
         <span className="count">{objects.length.toLocaleString()}</span>
+        {/* Nothing placed is nothing to install, and a button that explains that after the click
+            is worse than one that is plainly not available yet. */}
+        <button
+          className="primary"
+          disabled={objects.length === 0}
+          title={objects.length === 0 ? 'Place something first' : 'Write this into X-Plane'}
+          onClick={onExport}
+        >
+          Install…
+        </button>
       </div>
 
       {objects.length === 0 ? (

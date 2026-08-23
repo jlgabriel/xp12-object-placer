@@ -48,6 +48,13 @@ export interface EditorState {
    */
   readonly cameraEpoch: number;
   readonly tiles: TileProviderId;
+  /**
+   * True while a dialog is over the map.
+   *
+   * The map listens for keys on the window, so without this a Delete pressed with a dialog open —
+   * on its way to a button, or by reflex — quietly removes the selected object behind it.
+   */
+  readonly modalOpen: boolean;
 
   setCatalog(entries: readonly CatalogEntry[]): void;
   arm(virtualPath: string | null): void;
@@ -59,6 +66,7 @@ export interface EditorState {
   setCamera(camera: Camera): void;
   goTo(position: LonLat, zoom?: number): void;
   setTiles(provider: TileProviderId): void;
+  setModalOpen(open: boolean): void;
 }
 
 /**
@@ -93,6 +101,7 @@ export function createEditorStore(): EditorStore {
       camera: DEFAULT_CAMERA,
       cameraEpoch: 0,
       tiles: 'esri',
+      modalOpen: false,
 
       setCatalog(entries) {
         const index = new Map(entries.map((entry) => [entry.virtualPath, entry]));
@@ -163,6 +172,10 @@ export function createEditorStore(): EditorStore {
 
       setTiles(provider) {
         set({ tiles: provider });
+      },
+
+      setModalOpen(open) {
+        set({ modalOpen: open });
       },
 
       goTo(position, zoom) {

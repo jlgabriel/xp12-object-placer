@@ -22,6 +22,10 @@ const api: XopApi = {
   getCatalog: () => ipcRenderer.invoke('xop:getCatalog'),
   rescanCatalog: () => ipcRenderer.invoke('xop:rescanCatalog'),
 
+  exportPack: (request) => ipcRenderer.invoke('xop:exportPack', request),
+  listInstalledPacks: () => ipcRenderer.invoke('xop:listInstalledPacks'),
+  uninstallPack: (packName) => ipcRenderer.invoke('xop:uninstallPack', packName),
+
   onScanProgress: (listener: (progress: ScanProgress) => void) => {
     // The payload is re-read off the event rather than forwarded blind, so the renderer only ever
     // sees the shape it declared. Returning the unsubscribe keeps React effects honest.

@@ -26,9 +26,18 @@ actually has. Pick one, click the map, and it lands there: drawn as its real foo
 its rotation, with a dot on the point the coordinate refers to. Drag the box to move it, drag the
 cyan grip to turn it against the satellite imagery.
 
-What is still missing is the other end: writing the pack out and installing it. The pieces exist and
-have been flown (`src/core/dsf`, [`probes/`](probes/)); they are not wired to the window yet.
-Thumbnails are missing too.
+Then **Install**: XOP writes the pack into `Custom Scenery` — one binary DSF per one-degree tile,
+written by XOP itself, with no external tool involved — and adds its own line to
+`scenery_packs.ini`, at the top of the overlay tier, after backing that file up. It never
+overwrites a folder it did not make, and it can take a pack back out again: the folder *and* the
+line.
+
+**One thing is not confirmed yet.** The DSF encoder is checked against byte sequences from a file
+X-Plane has flown, and DSFTool reads back what we write — but a pack written entirely by XOP has not
+yet been loaded by the simulator itself. [`probes/H8`](probes/H8/FLIGHT.md) is built and waiting for
+a flight; until it is flown, treat this as promising rather than proven.
+
+Thumbnails are still missing.
 
 The data layer also runs headless:
 

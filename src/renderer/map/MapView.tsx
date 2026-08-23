@@ -127,6 +127,8 @@ export function MapView(): React.JSX.Element {
     const onKey = (event: KeyboardEvent): void => {
       if (isTyping(event.target)) return;
       const state = editorStore.getState();
+      // A dialog is in front of the map. Its keys are its own.
+      if (state.modalOpen) return;
       if (event.key === 'Escape') state.arm(null);
       if ((event.key === 'Delete' || event.key === 'Backspace') && state.selection) {
         state.deleteObject(state.selection);

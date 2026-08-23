@@ -6,7 +6,7 @@
  * else would make the sandbox decorative.
  */
 
-import type { GroundBox } from '../core/model.js';
+import type { GroundBox, PlacedObject } from '../core/model.js';
 
 export interface Installation {
   readonly path: string;
@@ -77,6 +77,45 @@ export interface ScanProgress {
   readonly total: number;
 }
 
+/** Where the installer put its line, and why. */
+export type SceneryPackPlacement =
+  | 'below-global-airports'
+  | 'appended'
+  | 'already-present'
+  | 'disabled-by-user';
+
+export interface ExportRequest {
+  /** What the user typed. A name, not a path — main decides what folder that becomes. */
+  readonly packName: string;
+  readonly objects: readonly PlacedObject[];
+}
+
+export interface ExportResult {
+  readonly packFolder: string;
+  /** Where it landed, for telling the user. Display only; the renderer never sends a path back. */
+  readonly packRoot: string;
+  readonly fileCount: number;
+  readonly tileCount: number;
+  /** The exact `scenery_packs.ini` line, and whether it had to be written. */
+  readonly line: string;
+  readonly lineWritten: boolean;
+  readonly placement: SceneryPackPlacement;
+  readonly iniBackup?: string;
+  readonly warnings: readonly string[];
+}
+
+export interface InstalledPack {
+  readonly packName: string;
+  readonly writtenAt: string;
+  readonly fileCount: number;
+  readonly xop: string;
+}
+
+export interface UninstallResult {
+  readonly folderRemoved: boolean;
+  readonly linesRemoved: readonly string[];
+}
+
 export interface XopApi {
   /**
    * The application version.
@@ -105,6 +144,23 @@ export interface XopApi {
   rescanCatalog(): Promise<CatalogSnapshot>;
   /** Progress during a rescan. Returns an unsubscribe function. */
   onScanProgress(listener: (progress: ScanProgress) => void): () => void;
+
+  /**
+   * Write the placed objects into the chosen installation as a scenery pack, and add its line to
+   * `scenery_packs.ini`.
+   *
+   * The renderer supplies a **name** and the objects. It does not say where anything goes: main
+   * owns the installation path, sanitises the name into a folder, and refuses anything that would
+   * land outside `Custom Scenery`. That is the same rule as `selectInstallation` — the renderer
+   * never names a path it invented.
+   */
+  exportPack(request: ExportRequest): Promise<ExportResult>;
+
+  /** The packs XOP has installed here, so they can be offered for removal. */
+  listInstalledPacks(): Promise<InstalledPack[]>;
+
+  /** Remove a pack: its folder and its line. Main refuses any folder it did not write. */
+  uninstallPack(packName: string): Promise<UninstallResult>;
 }
 
 declare global {

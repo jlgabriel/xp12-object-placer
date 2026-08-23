@@ -1,4 +1,11 @@
-import type { CatalogEntry, CatalogSnapshot, Installation, XopApi } from '../../shared/api.js';
+import type {
+  CatalogEntry,
+  CatalogSnapshot,
+  ExportResult,
+  Installation,
+  InstalledPack,
+  XopApi,
+} from '../../shared/api.js';
 import type { GroundBox } from '../../core/model.js';
 
 /**
@@ -134,6 +141,15 @@ export type StubState = 'first-run' | 'no-catalog' | 'scanning' | 'catalog' | 'p
 /** The same entries the preview seeds placements from, so the two never drift apart. */
 export const STUB_ENTRIES: readonly CatalogEntry[] = ENTRIES;
 
+/**
+ * Packs the stubbed installation already has. Stateful on purpose: uninstalling one in the harness
+ * has to actually make it disappear, or the list is a picture rather than a control.
+ */
+const installed: InstalledPack[] = [
+  { packName: 'SCEL apron detail', writtenAt: '2026-08-21T18:04:00.000Z', fileCount: 1, xop: '0.1.0' },
+  { packName: 'Valparaiso docks', writtenAt: '2026-08-19T22:41:00.000Z', fileCount: 3, xop: '0.1.0' },
+];
+
 export function installStubApi(state: StubState): void {
   const api: XopApi = {
     getVersion: async () => '0.0.0-preview',
@@ -154,6 +170,66 @@ export function installStubApi(state: StubState): void {
 
     getCatalog: async () => (state === 'catalog' || state === 'placed' ? SNAPSHOT : null),
     rescanCatalog: async () => SNAPSHOT,
+
+    exportPack: async (request) => {
+      // One name fails, so the harness can reach the error path without a real installation. It is
+      // the refusal that matters most in this dialog: a folder XOP did not make is never overwritten.
+      if (/paris/i.test(request.packName)) {
+        throw new Error(
+          '"X-Plane Landmarks - Paris" already exists in Custom Scenery and was not made by XOP. ' +
+            'Choose another name, or move that folder out of the way first.',
+        );
+      }
+      const packFolder = request.packName.trim() || 'XOP Scenery';
+      // Counted from what was actually asked for, not hard-coded. A stub that contradicts itself
+      // teaches the wrong thing about the screen it is standing in for, and this harness has
+      // already caught one piece of text that lied.
+      const tiles = new Set(
+        request.objects.map(
+          (object) => `${Math.floor(object.position.lat)},${Math.floor(object.position.lon)}`,
+        ),
+      );
+      const result: ExportResult = {
+        packFolder,
+        packRoot: `${INSTALLATION.path}/Custom Scenery/${packFolder}`,
+        fileCount: tiles.size,
+        tileCount: tiles.size,
+        line: `SCENERY_PACK Custom Scenery/${packFolder}/`,
+        lineWritten: true,
+        placement: 'below-global-airports',
+        iniBackup: `${INSTALLATION.path}/Custom Scenery/scenery_packs.ini.before_XOP_${packFolder}.bak`,
+        warnings: [
+          ...(tiles.size >= 3
+            ? [`These objects span ${tiles.size} one-degree tiles, so the pack contains ${tiles.size} files.`]
+            : []),
+          ...(request.objects.some((object) => object.libraryPath.startsWith('lib/some_library'))
+            ? [
+                'This installation has no lib/some_library_you_do_not_have/shed.obj — X-Plane will draw nothing there, and will not say so.',
+              ]
+            : []),
+        ],
+      };
+      if (!installed.some((pack) => pack.packName === packFolder)) {
+        installed.unshift({
+          packName: packFolder,
+          writtenAt: '2026-08-22T20:30:00.000Z',
+          fileCount: result.fileCount,
+          xop: '0.0.0-preview',
+        });
+      }
+      return result;
+    },
+
+    listInstalledPacks: async () => [...installed],
+
+    uninstallPack: async (packName) => {
+      const at = installed.findIndex((pack) => pack.packName === packName);
+      if (at >= 0) installed.splice(at, 1);
+      return {
+        folderRemoved: at >= 0,
+        linesRemoved: at >= 0 ? [`SCENERY_PACK Custom Scenery/${packName}/`] : [],
+      };
+    },
 
     onScanProgress: (listener) => {
       if (state === 'scanning') {
