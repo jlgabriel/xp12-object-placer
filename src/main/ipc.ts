@@ -24,7 +24,7 @@ import {
   listInstalledPacks,
   uninstallPack,
 } from '../node/installPack.js';
-import type { PlacedObject } from '../core/model.js';
+import { PlacedObjectSchema, toPlacedObject } from '../core/project/project.js';
 import type {
   CatalogSnapshot,
   ExportResult,
@@ -61,27 +61,6 @@ class UserFacingError extends Error {}
  */
 const offeredPaths = new Set<string>();
 
-/**
- * What an export request is allowed to look like.
- *
- * The renderer is not trusted, and this is the one channel where it hands over a whole data
- * structure rather than a single string. Everything downstream — the DSF writer, the pool encoder,
- * the installer — is written against objects that make sense, so the boundary is where nonsense
- * stops. The limits are generous enough that no real project meets them and small enough that a
- * runaway renderer cannot ask main to allocate its way out of memory.
- */
-const PlacedObjectSchema = z.object({
-  id: z.string().min(1).max(200),
-  libraryPath: z.string().min(1).max(1024),
-  position: z.object({
-    lon: z.number().refine(Number.isFinite, 'longitude must be a real number'),
-    lat: z.number().refine(Number.isFinite, 'latitude must be a real number'),
-  }),
-  rotation: z.number().refine(Number.isFinite, 'rotation must be a real number'),
-  label: z.string().max(300).optional(),
-  locked: z.boolean().optional(),
-});
-
 const ExportRequestSchema = z.object({
   packName: z.string().max(300),
   objects: z.array(PlacedObjectSchema).min(1).max(100_000),
@@ -92,24 +71,6 @@ const PackNameSchema = z.string().min(1).max(300);
 
 const md5 = (bytes: Uint8Array): Uint8Array =>
   new Uint8Array(createHash('md5').update(bytes).digest());
-
-/**
- * Rebuild what came across as a domain object, rather than passing the parsed shape along.
- *
- * Not ceremony: an absent optional and an optional explicitly set to `undefined` are different
- * types here, and the interesting half of that is what it forces — nothing reaches the exporter
- * except the six fields it is allowed to see, whatever else the renderer put in the message.
- */
-function toPlacedObject(parsed: z.infer<typeof PlacedObjectSchema>): PlacedObject {
-  return {
-    id: parsed.id,
-    libraryPath: parsed.libraryPath,
-    position: { lon: parsed.position.lon, lat: parsed.position.lat },
-    rotation: parsed.rotation,
-    ...(parsed.label === undefined ? {} : { label: parsed.label }),
-    ...(parsed.locked === undefined ? {} : { locked: parsed.locked }),
-  };
-}
 
 function offer(installations: readonly Installation[]): Installation[] {
   for (const installation of installations) offeredPaths.add(installation.path);

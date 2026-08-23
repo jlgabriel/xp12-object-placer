@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createEditorStore, DEFAULT_CAMERA } from '../src/renderer/state/store.js';
+import { createEditorStore } from '../src/renderer/state/store.js';
+import { DEFAULT_CAMERA } from '../src/core/project/project.js';
 import type { CatalogEntry } from '../src/shared/api.js';
 
 const HANGAR: CatalogEntry = {

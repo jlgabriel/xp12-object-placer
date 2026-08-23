@@ -16,19 +16,11 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import type { LonLat, PlacedObject } from '../../core/model.js';
 import { normalizeDegrees, wrapLon } from '../../core/geo/geo.js';
 import type { CatalogEntry } from '../../shared/api.js';
+import { DEFAULT_CAMERA, type Camera } from '../../core/project/project.js';
 
 /** Which map imagery is underneath. Satellite is the default: objects are placed against what is
  *  actually on the ground, and street tiles rarely show the apron you are decorating. */
 export type TileProviderId = 'esri' | 'osm';
-
-export interface Camera {
-  readonly lon: number;
-  readonly lat: number;
-  readonly zoom: number;
-}
-
-/** Where the map opens before anyone has said where they want to work. */
-export const DEFAULT_CAMERA: Camera = { lon: 0, lat: 20, zoom: 3 };
 
 export interface EditorState {
   readonly objects: readonly PlacedObject[];
