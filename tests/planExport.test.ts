@@ -1,8 +1,9 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { planExport } from '../src/core/export/planExport.js';
+import { planExport, PROJECT_SIDECAR } from '../src/core/export/planExport.js';
 import { DEFAULT_PACK_NAME, packFolderName } from '../src/core/export/packName.js';
 import type { PlacedObject } from '../src/core/model.js';
+import { newProject, parseProject } from '../src/core/project/project.js';
 
 const md5 = (bytes: Uint8Array): Uint8Array =>
   new Uint8Array(createHash('md5').update(bytes).digest());
@@ -13,8 +14,13 @@ function object(id: string, lon: number, lat: number, libraryPath = TRUCK): Plac
   return { id, libraryPath, position: { lon, lat }, rotation: 0 };
 }
 
+const projectOf = (objects: readonly PlacedObject[]) => ({
+  ...newProject('2026-08-22T12:00:00.000Z'),
+  objects,
+});
+
 const plan = (objects: readonly PlacedObject[], packName = 'Santiago', extra = {}) =>
-  planExport({ packName, objects, creationAgent: 'XOP-test', md5, ...extra });
+  planExport({ packName, project: projectOf(objects), creationAgent: 'XOP-test', md5, ...extra });
 
 describe('packFolderName', () => {
   it('leaves a perfectly ordinary name alone', () => {
@@ -68,6 +74,8 @@ describe('planExport', () => {
     expect(result.files.map((file) => file.path)).toEqual([
       'Earth nav data/-40-080/-34-071.dsf',
       'Earth nav data/+40+000/+48+002.dsf',
+      // The pack carries a copy of the project, so an installed pack is not a dead end.
+      PROJECT_SIDECAR,
     ]);
     expect(result.tiles).toEqual([
       { lat: -34, lon: -71 },
@@ -147,5 +155,42 @@ describe('planExport', () => {
       expect(file.path).not.toContain('..');
       expect(file.path.startsWith('/')).toBe(false);
     }
+  });
+});
+
+describe('the project the pack carries', () => {
+  const decode = (bytes: Uint8Array): unknown => JSON.parse(new TextDecoder().decode(bytes));
+  const sidecarOf = (result: ReturnType<typeof plan>) =>
+    result.files.find((file) => file.path === PROJECT_SIDECAR)!;
+
+  it('reads back as the project that was exported', () => {
+    const objects = [object('obj-1', -70.78, -33.37)];
+    expect(parseProject(decode(sidecarOf(plan(objects)).bytes)).objects).toEqual(objects);
+  });
+
+  // The whole point of the copy: this application writes DSF and does not read it, so an installed
+  // pack would otherwise be a dead end — the objects are in the simulator, and there is no way back
+  // to editing them. Reopening the copy has to plan byte-identical scenery, or the way back is a
+  // different pack wearing the same name.
+  it('makes the pack a way back: reopening it plans the same scenery, byte for byte', () => {
+    const first = plan([object('obj-1', -70.78, -33.37), object('obj-2', 2.33, 48.86)]);
+    const reopened = parseProject(decode(sidecarOf(first).bytes));
+    const second = planExport({
+      packName: 'Santiago',
+      project: reopened,
+      creationAgent: 'XOP-test',
+      md5,
+    });
+
+    const scenery = (result: typeof first) =>
+      result.files
+        .filter((file) => file.path.endsWith('.dsf'))
+        .map((file) => [file.path, [...file.bytes]]);
+
+    expect(scenery(second)).toEqual(scenery(first));
+  });
+
+  it('is not counted as a tile', () => {
+    expect(plan([object('obj-1', -70.78, -33.37)]).tiles).toEqual([{ lat: -34, lon: -71 }]);
   });
 });

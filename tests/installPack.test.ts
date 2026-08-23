@@ -13,6 +13,7 @@ import {
 } from '../src/node/installPack.js';
 import { planExport } from '../src/core/export/planExport.js';
 import type { PlacedObject } from '../src/core/model.js';
+import { newProject } from '../src/core/project/project.js';
 
 const md5 = (bytes: Uint8Array): Uint8Array =>
   new Uint8Array(createHash('md5').update(bytes).digest());
@@ -51,8 +52,13 @@ const objects: PlacedObject[] = [
   { id: 'b', libraryPath: TRUCK, position: { lon: 2.33, lat: 48.86 }, rotation: 90 },
 ];
 
+const projectOf = (placed: readonly PlacedObject[]) => ({
+  ...newProject('2026-08-22T12:00:00.000Z'),
+  objects: placed,
+});
+
 const plan = (packName = 'Santiago') =>
-  planExport({ packName, objects, creationAgent: 'XOP-test', md5 });
+  planExport({ packName, project: projectOf(objects), creationAgent: 'XOP-test', md5 });
 
 const readIni = (root: string): string =>
   readFileSync(join(root, 'Custom Scenery', 'scenery_packs.ini'), 'latin1');
@@ -127,7 +133,7 @@ describe('installPack', () => {
 
     const single = planExport({
       packName: 'Santiago',
-      objects: [objects[0]!],
+      project: projectOf([objects[0]!]),
       creationAgent: 'XOP-test',
       md5,
     });
@@ -185,10 +191,10 @@ describe('installPack', () => {
     const root = installation();
     const withUnknown = planExport({
       packName: 'Santiago',
-      objects: [
+      project: projectOf([
         ...objects,
         { id: 'c', libraryPath: 'lib/gone/shed.obj', position: { lon: -70.78, lat: -33.371 }, rotation: 0 },
-      ],
+      ]),
       creationAgent: 'XOP-test',
       md5,
       knownLibraryPaths: new Set([TRUCK]),

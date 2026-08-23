@@ -24,7 +24,7 @@ import {
   listInstalledPacks,
   uninstallPack,
 } from '../node/installPack.js';
-import { PlacedObjectSchema, toPlacedObject } from '../core/project/project.js';
+import { parseProject, touchProject } from '../core/project/project.js';
 import type {
   CatalogSnapshot,
   ExportResult,
@@ -63,7 +63,10 @@ const offeredPaths = new Set<string>();
 
 const ExportRequestSchema = z.object({
   packName: z.string().max(300),
-  objects: z.array(PlacedObjectSchema).min(1).max(100_000),
+  // Validated by parseProject rather than described again here: the project reader is already the
+  // one door that decides what a project may look like, and a second description of the same shape
+  // is a second answer waiting to disagree with the first.
+  project: z.unknown(),
 });
 
 /** A pack name coming back from the renderer, before it is allowed near the filesystem. */
@@ -195,7 +198,7 @@ export function registerIpc(): void {
     try {
       const plan = planExport({
         packName: parsed.data.packName,
-        objects: parsed.data.objects.map(toPlacedObject),
+        project: touchProject(parseProject(parsed.data.project)),
         creationAgent: `XP Object Placer ${__APP_VERSION__}`,
         md5,
         ...(known ? { knownLibraryPaths: known } : {}),

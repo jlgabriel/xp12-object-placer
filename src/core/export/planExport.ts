@@ -10,16 +10,32 @@
  * mistake in here shows up in a test rather than in a folder somebody has to clean up.
  */
 
-import type { PlacedObject } from '../model.js';
 import { groupByTile, tilePath, type DsfTile } from '../dsf/tile.js';
+import type { Project } from '../project/project.js';
 import { writeDsfBinary } from '../dsf/writeDsfBinary.js';
 import { packFolderName } from './packName.js';
 import { sceneryPackLine } from '../install/sceneryPacksIni.js';
 
+/**
+ * The copy of the project that travels inside the pack.
+ *
+ * This application writes DSF and does not read it, so without this an installed pack is a dead
+ * end: the objects are in the simulator and there is no way back to editing them. With it, the
+ * pack is its own way back — and it travels, so a pack handed to somebody else arrives editable.
+ */
+export const PROJECT_SIDECAR = 'project.xop';
+
 export interface ExportRequest {
   /** What the user called it. Sanitised here; the plan reports if it had to change. */
   readonly packName: string;
-  readonly objects: readonly PlacedObject[];
+  /**
+   * The project being exported.
+   *
+   * The objects come from in here rather than as a list of their own, so that the scenery and the
+   * copy of the project written beside it cannot disagree about what was placed. Two sources for
+   * one fact is how the two answers drift.
+   */
+  readonly project: Project;
   /** Written to `sim/creation_agent` in every tile. */
   readonly creationAgent: string;
   /** MD5 for the DSF footer. Injected, so `src/core` stays free of Node builtins. */
@@ -62,7 +78,8 @@ export interface ExportPlan {
 const TILE_COUNT_WORTH_MENTIONING = 3;
 
 export function planExport(request: ExportRequest): ExportPlan {
-  const { objects, creationAgent, md5, knownLibraryPaths } = request;
+  const { project, creationAgent, md5, knownLibraryPaths } = request;
+  const objects = project.objects;
 
   if (objects.length === 0) {
     // A pack with no DSF in it is a folder X-Plane scans and finds nothing in — an installation
@@ -87,7 +104,7 @@ export function planExport(request: ExportRequest): ExportPlan {
 
   if (groups.length >= TILE_COUNT_WORTH_MENTIONING) {
     warnings.push(
-      `These objects span ${groups.length} one-degree tiles, so the pack contains ${groups.length} files.`,
+      `These objects span ${groups.length} one-degree tiles, so the pack contains ${groups.length} scenery files.`,
     );
   }
 
@@ -108,6 +125,14 @@ export function planExport(request: ExportRequest): ExportPlan {
       );
     }
   }
+
+  // Last, so the scenery is what the file list leads with. It is a pack file like any other from
+  // here on: written into the staging directory, listed in the manifest, and removed with the rest.
+  files.push({
+    path: PROJECT_SIDECAR,
+    bytes: new TextEncoder().encode(`${JSON.stringify(project, null, 2)}
+`),
+  });
 
   return {
     packFolder: name.folder,
