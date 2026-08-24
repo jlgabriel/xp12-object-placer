@@ -116,9 +116,7 @@ export function ExportDialog({ onClose }: { onClose: () => void }): React.JSX.El
                 has nothing left to change. */}
             <p className="warn-note">
               <b>Close X-Plane before installing.</b> It reads <code>scenery_packs.ini</code> when
-              it starts, so a pack added while it is running will not appear — and rewriting that
-              file underneath a running simulator is not a thing to do to somebody&rsquo;s
-              installation.
+              it starts, so a pack added while it is running will not appear.
             </p>
           </>
         )}
