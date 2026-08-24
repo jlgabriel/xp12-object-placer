@@ -153,6 +153,35 @@ export type StubState =
 export const STUB_ENTRIES: readonly CatalogEntry[] = ENTRIES;
 
 /**
+ * The real catalog, when this machine has one — `?catalog=real`.
+ *
+ * The hand-made entries above are shaped for layout: every awkward case, thirty of them. They
+ * cannot answer a question about *scale*, and the two questions this panel now has — how much does
+ * the list cost at full size, and what does the category tree actually look like — are both
+ * questions about scale. Thirty invented paths would give a four-node tree and a list that renders
+ * instantly, which is to say they would agree with whatever we already believed.
+ *
+ * So: drop a real snapshot in beside this file and the harness serves it verbatim.
+ *
+ *   copy "%APPDATA%\xp12-object-placer\catalog\<digest>.json" src\renderer\dev\catalog.local.json
+ *
+ * Laminar's content, and one machine's own directory layout — `*.local.json` is gitignored, and
+ * `import.meta.glob` means the harness still builds on a machine that has no such file.
+ */
+const REAL_SNAPSHOT: CatalogSnapshot | null = (() => {
+  const found = import.meta.glob<{ default: CatalogSnapshot }>('./catalog.local.json', {
+    eager: true,
+  });
+  const module = found['./catalog.local.json'];
+  return module ? module.default : null;
+})();
+
+/** Did the harness find a real snapshot? The preview says so out loud rather than quietly not. */
+export function hasRealCatalog(): boolean {
+  return REAL_SNAPSHOT !== null;
+}
+
+/**
  * A handful of airports, chosen for the cases that make the box look wrong rather than for coverage.
  *
  * An accented name that has to be findable typed flat; codes sharing a prefix, so the prefix tier
@@ -212,7 +241,10 @@ const STUB_PROJECT: Project = {
   ],
 };
 
-export function installStubApi(state: StubState): void {
+export function installStubApi(state: StubState, real = false): void {
+  /** The real snapshot when it was asked for and is there; otherwise the hand-made one. */
+  const snapshot = (): CatalogSnapshot => (real && REAL_SNAPSHOT ? REAL_SNAPSHOT : SNAPSHOT);
+
   const api: XopApi = {
     getVersion: async () => '0.0.0-preview',
     openLog: async () => {
@@ -279,8 +311,8 @@ export function installStubApi(state: StubState): void {
     browseForInstallation: async () => INSTALLATION,
 
     getCatalog: async () =>
-      state === 'catalog' || state === 'placed' || state === 'no-airports' ? SNAPSHOT : null,
-    rescanCatalog: async () => SNAPSHOT,
+      state === 'catalog' || state === 'placed' || state === 'no-airports' ? snapshot() : null,
+    rescanCatalog: async () => snapshot(),
 
     getAirports: async () => {
       if (state === 'no-airports') throw new Error('no apt.dat could be read');

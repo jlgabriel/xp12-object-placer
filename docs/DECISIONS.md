@@ -440,3 +440,54 @@ exercised the case that would hurt, which is a line inserted *while the simulato
 control was designed and deliberately not run: the rule above costs nothing, covers that case
 whatever the answer turns out to be, and matches what users already do. If anybody wants the
 measurement later, the design is in the notes.
+
+## D17 — The catalog is browsed by its own paths, and the list is not capped (2026-08-24)
+
+The object panel has a **category tree** above the list, and the list shows **every match** with no
+limit.
+
+The tree is derived from the virtual paths and nothing else. `lib/airport/hangars/arched/16x16/`
+already names what it holds, so XOP groups by the segments that are there, counts them, and stops.
+On a stock X-Plane 12 that is 14 roots and 249 nodes over 3 837 objects, one to five levels deep.
+
+**Why a tree at all:** the panel could only be searched, and a search only works for somebody who
+already knows what the thing is called. Somebody who wants "a hangar, a smallish one" had no way in.
+It is the same shape of gap as the airport box truncating at twenty (D15's sibling fix): a list you
+cannot walk is half a tool.
+
+**Why no classification of our own.** PCT had to invent a taxonomy — a curated table of 911 flat
+names, prefix rules, a fallback bucket — because AFS4's names are flat. X-Plane's are not. Writing a
+category table here would solve a problem this catalog does not have, and shipping a curated list of
+Laminar's object names is packaged data of exactly the kind D7 rules out. The library authors sorted
+their own work; the panel shows their sorting, in their words. `g10`, `XCDL`, `Common_Elements` are
+what WED and the forums call these, so those are the words on screen, with underscores opened up and
+nothing else changed.
+
+**No branch is hidden**, and none is special-cased. `g10` holds the 1 123 × 517 m autogen city
+blocks *and* `carport1_6x3`; a blacklist would take the garages with it. Size is the second axis and
+it already has a control.
+
+**Counts follow the filters in force.** A branch reading `hangars 380` that produces nothing under
+`max size 10 m` is the same quiet lie as a list that truncates without saying so, so under that
+filter it reads `hangars 0`. It stays where it is, dimmed — a tree that rearranges itself under the
+cursor while somebody types is unusable.
+
+### Why the cap went, and what it cost
+
+There was a `slice(0, 400)` with a line underneath saying the list was truncated. It carried no
+comment and no measurement, and saying out loud that you are truncating does not make the rest
+reachable. It was measured before it was removed, on a real 3 837-object installation, in a
+production build:
+
+| | |
+|---|---|
+| build the whole list when it swells to full size | ~145 ms |
+| a keystroke typed while the list is that big | ~50 ms |
+| the same, before `content-visibility` on the rows | ~215 ms |
+
+That is a real cost, and naming it is the point. It is paid on the way *out* of a search rather than
+on the way in, and with the tree the full 3 837 is now the rare case. Two guesses that turned out
+wrong, so nobody re-makes them: it is **not** the per-row `IntersectionObserver` (3 837 of them cost
+5 ms), and it is **not** paint — `content-visibility: auto` took a third off the worst case and left
+the keystroke untouched. What remains is React building the rows, and the honest fix for that is
+windowing, if it is ever worth the code.

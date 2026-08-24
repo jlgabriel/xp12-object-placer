@@ -1,14 +1,23 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '../App.js';
-import { installStubApi, STUB_ENTRIES, type StubState } from './stubApi.js';
+import { installStubApi, hasRealCatalog, STUB_ENTRIES, type StubState } from './stubApi.js';
 import { preventFileDrop } from '../preventFileDrop.js';
 import { editorStore } from '../state/editorStore.js';
 import '../styles.css';
 
 // The stub has to exist before App's first effect runs, so this happens at module scope.
-const state = (new URLSearchParams(location.search).get('state') ?? 'catalog') as StubState;
-installStubApi(state);
+const params = new URLSearchParams(location.search);
+const state = (params.get('state') ?? 'catalog') as StubState;
+// `?catalog=real` serves this machine's own scan instead of the thirty hand-made entries, which is
+// the only way the harness can answer a question about scale. It says so if it cannot: a harness
+// that silently fell back to the small fixture would report a fast list and a tidy tree, and both
+// would be about the fixture.
+const real = params.get('catalog') === 'real';
+if (real && !hasRealCatalog()) {
+  console.warn('[preview] ?catalog=real, but src/renderer/dev/catalog.local.json is not there');
+}
+installStubApi(state, real);
 preventFileDrop();
 
 /**

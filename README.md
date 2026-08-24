@@ -86,6 +86,14 @@ window with work in it asks first. Every exported pack also contains a copy of t
 installed pack can be reopened and edited — XOP writes DSF and does not read it, so without that
 copy a pack would be a dead end.
 
+The catalog can be **browsed as well as searched**. X-Plane's virtual paths already carry a
+taxonomy — `lib/airport/hangars/arched/16x16/rusted_1.obj` says what it is — so the panel puts that
+on screen as a tree with a count on every branch, and XOP invents no categories of its own. Pick
+`airport → hangars → arched` and the list is the forty objects underneath it. The counts follow the
+search box and the size filter, so a branch never offers rows it has not got, and **the list itself
+is not capped**: every match is shown, however many that is. Before this the panel could only be
+searched, which only ever worked for somebody who already knew the name of the thing they wanted.
+
 Every object in the catalog shows a **picture of itself**, drawn from the geometry and texture in
 your own installation — three-quarter view, lit, with ground markings looked at from overhead. They
 are drawn when a row comes into view and kept afterwards, so the list fills in as you scroll and is
