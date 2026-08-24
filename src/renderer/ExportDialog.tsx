@@ -88,6 +88,14 @@ export function ExportDialog({ onClose }: { onClose: () => void }): React.JSX.El
 
         {result ? (
           <Installed result={result} />
+        ) : objects.length === 0 ? (
+          /* Opened with an empty document — which is what somebody does when all they want is to
+             take a pack back out. There is nothing to install and saying so is the whole message;
+             the list of installed packs is underneath, which is what they came for. */
+          <p className="lead">
+            Nothing is placed, so there is nothing to install. You can still remove a pack you
+            installed earlier.
+          </p>
         ) : (
           <>
             <p className="lead">
@@ -122,16 +130,19 @@ export function ExportDialog({ onClose }: { onClose: () => void }): React.JSX.El
         )}
 
         <div className="actions">
-          {result ? (
+          {result || objects.length === 0 ? (
+            // No Install button when there is nothing to install, and no Cancel either: there is
+            // nothing in progress to cancel, and offering both makes a person work out which one
+            // is the harmless one.
             <button className="primary" onClick={onClose}>
-              Done
+              {result ? 'Done' : 'Close'}
             </button>
           ) : (
             <>
               <button disabled={busy} onClick={onClose}>
                 Cancel
               </button>
-              <button className="primary" disabled={busy || objects.length === 0} onClick={() => void doExport()}>
+              <button className="primary" disabled={busy} onClick={() => void doExport()}>
                 {busy ? 'Writing…' : 'Install'}
               </button>
             </>

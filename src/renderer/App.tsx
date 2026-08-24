@@ -608,12 +608,19 @@ function PlacementPanel({ onExport }: { onExport: () => void }): React.JSX.Eleme
       <div className="panel-head">
         <h2>Placed</h2>
         <span className="count">{objects.length.toLocaleString()}</span>
-        {/* Nothing placed is nothing to install, and a button that explains that after the click
-            is worse than one that is plainly not available yet. */}
+        {/* Stays available with nothing placed, and that is not an oversight. This dialog is also
+            the only way to *remove* a pack, so disabling the door because one of the two things
+            behind it is unavailable locks the other one out — and somebody who opens the app just
+            to uninstall has, by definition, nothing placed. It was disabled at first on the
+            reasoning that nothing placed is nothing to install, which is true and was the wrong
+            thing to hang the button on. The dialog says which of the two is available. */}
         <button
           className="primary"
-          disabled={objects.length === 0}
-          title={objects.length === 0 ? 'Place something first' : 'Write this into X-Plane'}
+          title={
+            objects.length === 0
+              ? 'Nothing to install yet — but you can remove a pack from here'
+              : 'Write this into X-Plane'
+          }
           onClick={onExport}
         >
           Install…
