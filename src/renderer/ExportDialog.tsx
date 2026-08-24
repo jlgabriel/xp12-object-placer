@@ -112,6 +112,14 @@ export function ExportDialog({ onClose }: { onClose: () => void }): React.JSX.El
             <p className="hint">
               This becomes the folder name. XP Object Placer never overwrites a folder it did not make.
             </p>
+            {/* Said before the button, not after it. Afterwards the pack is written and the advice
+                has nothing left to change. */}
+            <p className="warn-note">
+              <b>Close X-Plane before installing.</b> It reads <code>scenery_packs.ini</code> when
+              it starts, so a pack added while it is running will not appear — and rewriting that
+              file underneath a running simulator is not a thing to do to somebody&rsquo;s
+              installation.
+            </p>
           </>
         )}
 
@@ -169,7 +177,7 @@ function Installed({ result }: { result: ExportResult }): React.JSX.Element {
           ))}
         </ul>
       )}
-      <p className="note">Restart X-Plane to see it.</p>
+      <p className="note">Start X-Plane to see it.</p>
     </div>
   );
 }
@@ -205,6 +213,7 @@ function InstalledPacks({
       {packs.length === 0 ? (
         <p className="note">None yet.</p>
       ) : (
+        // Removing edits the same file installing does, so it carries the same condition.
         <ul>
           {packs.map((pack) => (
             <li key={pack.packName}>
@@ -222,6 +231,7 @@ function InstalledPacks({
           ))}
         </ul>
       )}
+      {packs.length > 0 && <p className="note">Close X-Plane before removing one.</p>}
     </div>
   );
 }

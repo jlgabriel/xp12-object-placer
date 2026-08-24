@@ -777,6 +777,18 @@ button.primary:disabled {
   font-size: 11.5px;
 }
 
+/* An instruction, not a hint: it has to survive being skimmed, so it gets a rule down its side and
+   the ordinary text colour rather than the dim one. Not the warning red — nothing is wrong yet. */
+.modal .warn-note {
+  margin: 12px 0 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--accent);
+  background: #12171d;
+  border-radius: 0 6px 6px 0;
+  color: var(--text);
+  font-size: 12px;
+}
+
 .error.inline {
   border: 1px solid #5a2b2b;
   border-radius: 6px;

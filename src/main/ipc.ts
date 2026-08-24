@@ -302,9 +302,9 @@ export function registerIpc(): void {
         warnings: result.warnings,
       };
     } catch (error) {
-      // An InstallError already says something a person can act on — "close X-Plane first", "that
-      // folder was not made by XOP". Replacing it with the generic line would throw away the only
-      // part of the message worth reading.
+      // An InstallError already says something a person can act on — "another program has it
+      // open", "that folder was not made by XOP". Replacing it with the generic line would throw
+      // away the only part of the message worth reading.
       if (error instanceof InstallError || error instanceof RangeError) {
         throw new UserFacingError(error.message);
       }

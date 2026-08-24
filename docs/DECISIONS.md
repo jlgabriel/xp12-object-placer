@@ -404,3 +404,39 @@ middle of the field, and the datum is only a fallback for a pack that has nothin
 only when the files behind it change. It runs in the background while the rest of the application
 carries on, and the box says it is still reading. Searching the resulting 38 944 airports takes
 1–3 ms per keystroke.
+
+---
+
+## D16 — Install and uninstall with X-Plane closed (2026-08-23)
+
+The dialog says **"Close X-Plane before installing"** before the button, and **"Start X-Plane to
+see it"** after. Removing a pack carries the same condition.
+
+**Why:** X-Plane reads `scenery_packs.ini` when it starts. A pack added while it is running is a
+pack it will not see, so the install appears to have done nothing — which is the worst kind of
+failure, because there is nothing to report. And the ecosystem has always worked this way: every
+external scenery tool asks for the simulator to be shut, and users expect it. Decided by the author
+on that basis (2026-08-23): *"siempre se ha manejado esto así en la comunidad"*.
+
+**⚠️ This is not the file-locking claim, which was measured false and stays false.** An earlier
+build said "close X-Plane — it holds on to files in `Custom Scenery`". Probe H8 showed it does not:
+with the simulator running and the pack loaded, its `.dsf` could be opened for writing, renamed,
+and the whole folder deleted. That message was wrong and its removal was right. `rethrowLocked` in
+`installPack.ts` still refuses to blame X-Plane for a locked file, and that stays — a locked file
+means another program, and the right diagnosis matters when something has actually gone wrong.
+
+Two different questions, two different answers, and a reader who collapses them will "fix" one of
+them back into a falsehood:
+
+| | can it write? | will the simulator notice? |
+| --- | --- | --- |
+| X-Plane running | yes, measured (H8) | **no — the ini is read at startup** |
+| X-Plane closed | yes | yes |
+
+**What was not measured, and why it does not matter here.** Whether X-Plane ever rewrites
+`scenery_packs.ini` mid-session or on some other exit path is still open. Two clean exits left the
+file byte-identical, including one checked on 2026-08-23 with an XOP line present — but neither
+exercised the case that would hurt, which is a line inserted *while the simulator is running*. The
+control was designed and deliberately not run: the rule above costs nothing, covers that case
+whatever the answer turns out to be, and matches what users already do. If anybody wants the
+measurement later, the design is in the notes.

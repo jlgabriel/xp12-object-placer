@@ -71,6 +71,10 @@ written by XOP itself, with no external tool involved — and adds its own line 
 overwrites a folder it did not make, and it can take a pack back out again: the folder *and* the
 line.
 
+**Close X-Plane before you install**, and start it afterwards. X-Plane reads
+`scenery_packs.ini` when it launches, so a pack added while it is running is one it will not see
+([D16](docs/DECISIONS.md)). Same for taking a pack back out.
+
 **Flown, and confirmed in the simulator.** [`probes/H8`](probes/H8/FLIGHT.md) put a pack written
 entirely by XOP next to a DSFTool-compiled control, in the same place, on the same flight: both
 loaded, neither drew a warning, and the objects stood where they had been placed. That is what

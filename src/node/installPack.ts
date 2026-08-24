@@ -89,6 +89,13 @@ export class InstallError extends Error {}
  * So the branch stays — a backup, sync or antivirus tool genuinely can hold a file — but the
  * message no longer names a cause that was measured not to happen. Telling somebody to close
  * X-Plane when X-Plane is not the problem sends them to fix the wrong thing.
+ *
+ * ⚠️ **This does not contradict the dialog asking people to close X-Plane before installing (D16),
+ * and neither should be "fixed" to agree with the other.** They are about different things. The
+ * dialog's reason is that X-Plane reads `scenery_packs.ini` at startup, so an install it never sees
+ * is an install that did nothing. This message's reason would have been file locking, which was
+ * measured not to happen — a locked file here means some *other* program, and blaming X-Plane would
+ * be a wrong diagnosis of a real error.
  */
 function rethrowLocked(error: unknown, what: string): never {
   const code = (error as NodeJS.ErrnoException | undefined)?.code;
