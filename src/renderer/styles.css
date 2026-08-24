@@ -440,14 +440,21 @@ button.danger:hover {
   text-decoration: underline;
 }
 
-/* The category tree.
+/* What is left of the panel once the head, the filters and the footer have taken theirs. The tree
+   and the list divide it between them, thirty to seventy — the author's proportions. */
+.browse {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
 
-   It gets a share of the panel rather than all of it: bounded height with its own scrollbar, so
-   opening a deep branch cannot push the object list off the bottom of the screen. Fourteen roots
-   collapsed is about a third of this. */
+/* The category tree takes at most its thirty per cent, and less when it needs less: fourteen roots
+   collapsed do not fill it. Beyond that it scrolls inside itself, so opening a deep branch can
+   never push the object list off the bottom of the window. */
 .cat-tree {
   flex: 0 1 auto;
-  max-height: 34%;
+  max-height: 30%;
   overflow: auto;
   padding: 6px 0;
   border-bottom: 1px solid var(--line);

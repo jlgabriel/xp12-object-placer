@@ -480,63 +480,74 @@ function CatalogPanel({
         </span>
       </div>
 
-      <CategoryTree tree={tree} active={selected} onSelect={setCategory} />
-
       {/*
-        Every match, with no cap.
+        The tree and the list share what is left of the panel, thirty to seventy.
 
-        There used to be one at four hundred, with a line underneath saying so. Saying out loud that
-        you are truncating does not make the rest reachable, and a list that can only be searched is
-        half a tool: it works for somebody who already knows the name of the thing.
-
-        The cap was never measured, so it was measured before it was removed. On this machine's
-        3 837-object installation, in a production build: about 145 ms to build the whole list when
-        it swells to full size, and about 50 ms for a keystroke typed while it is that big. That is
-        a real cost and it is worth naming — but it is paid on the way *out* of a search, once, and
-        the tree above means the full 3 837 is now the rare case rather than the normal one.
-
-        Two things that were guessed at and turned out to be wrong, so nobody re-guesses them: it is
-        not the per-row IntersectionObserver (3 837 of them cost 5 ms), and it is not paint —
-        `content-visibility` on the rows took a third off the worst case but left the keystroke
-        alone. What is left is React building the rows, and the honest fix for that is windowing.
+        They are wrapped so that share is of *their* space rather than of the whole panel: the head,
+        the filters and the footer are fixed furniture, and a percentage taken against the panel
+        would quietly hand the tree a bigger slice on a short window than on a tall one.
       */}
-      <ul className="entries">
-        {matches.map((entry) => (
-          <CatalogRow
-            key={entry.virtualPath}
-            entry={entry}
-            armed={placing === entry.virtualPath}
-            onArm={arm}
-          />
-        ))}
-      </ul>
+      <div className="browse">
+        <CategoryTree tree={tree} active={selected} onSelect={setCategory} />
 
-      {matches.length === 0 && (
-        // Nothing found says which filters are in force and offers the way out of each, because the
-        // two compose: a category chosen ten minutes ago plus a word typed now is the usual cause,
-        // and neither one alone looks like a mistake.
-        <p className="no-matches">
-          Nothing matches
-          {selected !== null && (
-            <>
-              {' '}
-              in <strong>{selected}</strong>
-            </>
-          )}
-          {query.trim() !== '' && (
-            <>
-              {' '}
-              for “{query.trim()}”
-            </>
-          )}
-          {maxSize > 0 && <> under {maxSize} m</>}.
-          {selected !== null && (
-            <button className="link" onClick={() => setCategory(null)}>
-              search all objects
-            </button>
-          )}
-        </p>
-      )}
+        {/*
+          Every match, with no cap.
+
+          There used to be one at four hundred, with a line underneath saying so. Saying out loud
+          that you are truncating does not make the rest reachable, and a list that can only be
+          searched is half a tool: it works for somebody who already knows the name of the thing.
+
+          The cap was never measured, so it was measured before it was removed. On this machine's
+          3 837-object installation, in a production build: about 145 ms to build the whole list
+          when it swells to full size, and about 50 ms for a keystroke typed while it is that big.
+          That is a real cost and it is worth naming — but it is paid on the way *out* of a search,
+          once, and the tree above means the full 3 837 is now the rare case, not the normal one.
+
+          Two things that were guessed at and turned out wrong, so nobody re-guesses them: it is not
+          the per-row IntersectionObserver (3 837 of them cost 5 ms), and it is not paint —
+          `content-visibility` on the rows took a third off the worst case but left the keystroke
+          alone. What is left is React building the rows; the honest fix for that is windowing.
+        */}
+        <ul className="entries">
+          {matches.map((entry) => (
+            <CatalogRow
+              key={entry.virtualPath}
+              entry={entry}
+              armed={placing === entry.virtualPath}
+              onArm={arm}
+            />
+          ))}
+        </ul>
+
+        {/*
+          Nothing found says which filters are in force and offers the way out of each, because the
+          two compose: a category chosen ten minutes ago plus a word typed now is the usual cause,
+          and neither one alone looks like a mistake.
+        */}
+        {matches.length === 0 && (
+          <p className="no-matches">
+            Nothing matches
+            {selected !== null && (
+              <>
+                {' '}
+                in <strong>{selected}</strong>
+              </>
+            )}
+            {query.trim() !== '' && (
+              <>
+                {' '}
+                for “{query.trim()}”
+              </>
+            )}
+            {maxSize > 0 && <> under {maxSize} m</>}.
+            {selected !== null && (
+              <button className="link" onClick={() => setCategory(null)}>
+                search all objects
+              </button>
+            )}
+          </p>
+        )}
+      </div>
 
       <footer>
         {catalog.stats.libraries} libraries · {catalog.stats.offered.toLocaleString()} offered ·{' '}
