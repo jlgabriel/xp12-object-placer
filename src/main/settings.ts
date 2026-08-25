@@ -12,11 +12,19 @@ import { z } from 'zod';
 const SettingsSchema = z.object({
   /** Absolute path of the chosen X-Plane installation, or null on a first run. */
   installation: z.string().nullable().default(null),
+  /**
+   * The palette the user picked, or null while they have not picked one.
+   *
+   * Null is not "dark". It means *nobody has said*, which is what lets a first run follow the
+   * system and every run after it follow the user — two different questions that a single
+   * `'light' | 'dark'` field with a default could not tell apart.
+   */
+  theme: z.enum(['light', 'dark']).nullable().default(null),
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;
 
-const DEFAULTS: Settings = { installation: null };
+const DEFAULTS: Settings = { installation: null, theme: null };
 
 function settingsPath(userData: string): string {
   return join(userData, 'settings.json');

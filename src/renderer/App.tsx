@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CatalogEntry, CatalogSnapshot, Installation, ScanProgress } from '../shared/api.js';
 import { MapView } from './map/MapView.js';
 import { PROVIDER_LABEL } from './map/tileProviders.js';
@@ -10,8 +10,21 @@ import { createDocumentCommands } from './documentCommands.js';
 import { forgetThumbnails, ObjectThumbnail } from './thumbnails/ObjectThumbnail.js';
 import { AirportSearch } from './AirportSearch.js';
 import { CategoryTree } from './catalog/CategoryTree.js';
+import { ObjectPreview } from './catalog/ObjectPreview.js';
 import { buildCatalogTree, hasCategoryPath, matchesCategory } from './catalog/catalogTree.js';
 import type { PlacedObject } from '../core/model.js';
+import { otherTheme } from '../shared/theme.js';
+import { useTheme } from './theme.js';
+
+/**
+ * How long the mouse has to rest on a row before its picture is enlarged.
+ *
+ * Long enough that running the cursor down the list does not strobe popups behind it, short enough
+ * that stopping on something feels like it answered. PCT waits a full second for the same popup;
+ * this one is quicker because it can afford to be — nothing is fetched from anywhere until the
+ * timer fires, and the picture that appears first is one the row already had.
+ */
+const PREVIEW_DELAY_MS = 400;
 
 /**
  * The catalog, the map, and one object between them.
@@ -36,6 +49,7 @@ export function App(): React.JSX.Element {
 
   const dirty = useEditor((state) => state.dirty);
   const documentName = useEditor((state) => state.documentName);
+  const { theme, toggle: toggleTheme } = useTheme();
 
   useEffect(() => window.xop.onScanProgress(setProgress), []);
 
@@ -260,18 +274,32 @@ export function App(): React.JSX.Element {
           {documentName}
           {dirty && <b aria-label="unsaved changes"> •</b>}
         </span>
-        {/* The installation is a control, not a caption. It reads as the path either way, so the
-            header looks the same as it always did — but it is now the way out of a wrong one. */}
-        {installation && (
+        {/* Both of these belong to the right-hand end of the header, so they are grouped rather
+            than each pushing itself there: two elements with `margin-left: auto` would leave the
+            first of them stranded in the middle. */}
+        <span className="header-end">
+          {/* The installation is a control, not a caption. It reads as the path either way, so the
+              header looks the same as it always did — but it is now the way out of a wrong one. */}
+          {installation && (
+            <button
+              className="installation"
+              title={`${installation.path}\nClick to use a different X-Plane 12 installation`}
+              onClick={() => void changeInstallation()}
+            >
+              {installation.path}
+              {installation.version && <em> · X-Plane {installation.version}</em>}
+            </button>
+          )}
+          {/* Says where the click leads, not where you are: the window in front of you is already
+              telling you which theme is on. */}
           <button
-            className="installation"
-            title={`${installation.path}\nClick to use a different X-Plane 12 installation`}
-            onClick={() => void changeInstallation()}
+            className="theme"
+            title={`Switch to the ${otherTheme(theme)} theme`}
+            onClick={toggleTheme}
           >
-            {installation.path}
-            {installation.version && <em> · X-Plane {installation.version}</em>}
+            {theme === 'dark' ? '☀ Light' : '☾ Dark'}
           </button>
-        )}
+        </span>
       </header>
 
       {error && (
@@ -448,6 +476,29 @@ function CatalogPanel({
     store.arm(store.placing === entry.virtualPath ? null : entry.virtualPath);
   };
 
+  /**
+   * The row the mouse is resting on, and where it is.
+   *
+   * Held here rather than in the row, so there is one popup for the panel however many thousand
+   * rows are in it, and so moving from one row to the next replaces the picture instead of racing
+   * a second one onto the screen.
+   */
+  const [hovered, setHovered] = useState<{ entry: CatalogEntry; anchor: DOMRect } | null>(null);
+  const restTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const onRest = useCallback((entry: CatalogEntry, anchor: DOMRect): void => {
+    clearTimeout(restTimer.current);
+    restTimer.current = setTimeout(() => setHovered({ entry, anchor }), PREVIEW_DELAY_MS);
+  }, []);
+
+  const onLeave = useCallback((): void => {
+    clearTimeout(restTimer.current);
+    setHovered(null);
+  }, []);
+
+  // Never after the panel has gone.
+  useEffect(() => () => clearTimeout(restTimer.current), []);
+
   return (
     <section className="panel catalog-panel">
       <div className="panel-head">
@@ -508,13 +559,17 @@ function CatalogPanel({
           `content-visibility` on the rows took a third off the worst case but left the keystroke
           alone. What is left is React building the rows; the honest fix for that is windowing.
         */}
-        <ul className="entries">
+        {/* Scrolling slides the rows out from under a preview that is already up, and takes the
+            row it belongs to with them — so it goes, and comes back on the next rest. */}
+        <ul className="entries" onScroll={onLeave} onMouseLeave={onLeave}>
           {matches.map((entry) => (
             <CatalogRow
               key={entry.virtualPath}
               entry={entry}
               armed={placing === entry.virtualPath}
               onArm={arm}
+              onRest={onRest}
+              onLeave={onLeave}
             />
           ))}
         </ul>
@@ -549,6 +604,16 @@ function CatalogPanel({
         )}
       </div>
 
+      {/* Keyed on the object, so moving to another row remounts it: the frame then opens on that
+          object's own small picture instead of holding the last one while the new draw arrives. */}
+      {hovered && (
+        <ObjectPreview
+          key={hovered.entry.virtualPath}
+          entry={hovered.entry}
+          anchor={hovered.anchor}
+        />
+      )}
+
       <footer>
         {catalog.stats.libraries} libraries · {catalog.stats.offered.toLocaleString()} offered ·{' '}
         {catalog.stats.measured.toLocaleString()} measured
@@ -561,19 +626,37 @@ function CatalogRow({
   entry,
   armed,
   onArm,
+  onRest,
+  onLeave,
 }: {
   entry: CatalogEntry;
   armed: boolean;
   onArm: (entry: CatalogEntry) => void;
+  /** The mouse has arrived on this row; the panel decides how long a rest is. */
+  onRest: (entry: CatalogEntry, anchor: DOMRect) => void;
+  onLeave: () => void;
 }): React.JSX.Element {
   // An object X-Plane would draw as nothing cannot be placed. It is still listed, dimmed, with the
   // reason: somebody looking for it deserves to be told it is missing rather than to wonder.
   const unavailable = entry.unavailable !== undefined;
   return (
-    <li className={`${armed ? 'armed' : ''} ${unavailable ? 'unavailable' : ''}`.trim()}>
+    /* The hover lives on the row, not on the button inside it, and that is not tidiness: a
+       disabled button is inert to the mouse — measured, in the harness, on a row for an object
+       that is not installed — so hung off the button the preview would be unreachable for exactly
+       the objects whose full path and missing-file reason are most worth reading.
+
+       The row is also the right anchor for the popup: it opens clear of this panel instead of over
+       the name and the measurements of the object it is enlarging. */
+    <li
+      className={`${armed ? 'armed' : ''} ${unavailable ? 'unavailable' : ''}`.trim()}
+      onMouseEnter={(event) => onRest(entry, event.currentTarget.getBoundingClientRect())}
+      onMouseLeave={onLeave}
+    >
       <button
         disabled={unavailable}
-        title={entry.unavailable ?? entry.virtualPath}
+        // No `title`. The preview carries the whole virtual path and the reason an object is
+        // missing, and two tooltips for one row is one too many — a native one would arrive on top
+        // of the popup a moment later, saying the same thing in a box nobody styled.
         onClick={() => onArm(entry)}
       >
         <ObjectThumbnail virtualPath={entry.virtualPath} unavailable={unavailable} />

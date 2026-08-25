@@ -247,6 +247,13 @@ export function installStubApi(state: StubState, real = false): void {
 
   const api: XopApi = {
     getVersion: async () => '0.0.0-preview',
+
+    // In the application main resolves this from settings.json before the window exists; in a
+    // browser tab the query string is the only thing that can stand in for that.
+    initialTheme: new URLSearchParams(location.search).get('theme') === 'light' ? 'light' : 'dark',
+    setTheme: async (theme) => {
+      console.log('[stub] setTheme', theme);
+    },
     openLog: async () => {
       // Nothing to open in a browser tab; the harness only has to prove the button is reachable.
       console.log('[stub] openLog');

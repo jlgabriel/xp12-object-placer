@@ -491,3 +491,66 @@ wrong, so nobody re-makes them: it is **not** the per-row `IntersectionObserver`
 5 ms), and it is **not** paint — `content-visibility: auto` took a third off the worst case and left
 the keystroke untouched. What remains is React building the rows, and the honest fix for that is
 windowing, if it is ever worth the code.
+
+## D18 — Two themes, one switch, decided before the first paint (2026-08-24)
+
+XOP has a **light theme and a dark one**, a button in the header that swaps them, and no third
+state.
+
+**Why no "system".** A follow-the-desktop setting is the obvious third option and it costs more
+than it looks: it needs a menu instead of a button, and it means a window that changes colour under
+somebody who never asked it to. So the *first* run follows the desktop — main asks Electron's
+`nativeTheme` — and from the first click the choice belongs to the user and stays where they put
+it. `settings.json` stores `null` until then, which is the difference between "nobody has said" and
+"dark", and a single `'light' | 'dark'` field with a default could not tell those two apart.
+
+**The palette is one block of CSS custom properties, and the renderer knows no colours.** Adding
+the light theme was mostly promoting twenty-five literal hex values in `styles.css` into named
+roles — `--raise` for the face of a control, `--sink` for something you type into, `--hairline` for
+a border you are not meant to notice. The rule that keeps it that way: **no literal colour below
+the two palette blocks**. One is left, on purpose — the rotation read-out beside the grip, which
+sits on the satellite imagery rather than on the application, and answers to the photograph
+underneath it in either theme. The map's own drawing is literal for the same reason.
+
+**Light is not dark inverted.** The blue and the amber are *darker* than their dark-theme
+counterparts, not paler: `#4da3ff` on white is a pastel nobody can read. The greys keep their
+order — panel lightest, window behind it slightly darker — so the shape of the screen survives the
+flip.
+
+**It travels on the command line, not over IPC.** Main resolves the theme before the window exists,
+paints `backgroundColor` with it, and passes it to the preload as `--xop-theme=`. Asked for over
+IPC it could only arrive *after* the first paint, which is a frame of the wrong palette at every
+launch — the exact flash this arrangement exists to avoid. Two values then have to agree about one
+colour, `WINDOW_BACKGROUND` in `shared/theme.ts` and `--bg` in `styles.css`, and nothing at run time
+would notice if they stopped: `tests/theme.test.ts` reads the stylesheet and compares them.
+
+## D19 — The hover preview draws the object again, larger (2026-08-24)
+
+Resting the mouse on a catalog row for 400 ms opens a **floating preview**: the object at 240 px,
+and its whole virtual path in monospace.
+
+**Why.** A row is 44 px tall. That is enough to tell a hangar from an aeroplane and nowhere near
+enough to tell one hangar from the next, and there are 3 837 of them with names like `hangar_2b`.
+Without this the only way to know what you are about to place was to place it and go and look.
+
+**It is redrawn, not blown up.** The row's picture is 128 px and the disk cache holds that size and
+only that size. Scaling those 128 pixels up to 240 gives you the same doubt, softer — so the
+preview asks the thumbnail service for a fresh 480 px render off the geometry, into a second GL
+context of its own. That render is kept in memory for a handful of objects and **never written to
+the disk cache**, which is keyed by virtual path with no size in the key: putting it there would
+hand every row in the list a picture four times the weight it needs.
+
+It opens on the small picture the row already had — instantly, blurred — and swaps to the sharp one
+when it arrives, so the frame is never empty while a file is read.
+
+**The path is the second half of the feature.** The row can only show the last segment; the string
+that actually goes into the DSF is the whole virtual path, and it used to live in a native `title`
+tooltip. That tooltip is now gone: two tooltips for one row is one too many, and PCT already
+learned that the native one is unreliable on macOS (its forum thread #166).
+
+**Taken from PCT, and only the shape.** The idea and the placement arithmetic came across —
+`previewPosition.ts` is a port, GPL-3.0 both sides, noted in `docs/LINEAGE.md`. The content did
+not: PCT enlarges a photograph the user supplied, because Aerofly's objects cannot be read. XOP has
+the geometry, so it draws it. One deliberate change: the popup anchors on the **whole row** rather
+than on the little picture, so it opens clear of the panel and over the map instead of covering the
+name and the measurements of the object it is enlarging.

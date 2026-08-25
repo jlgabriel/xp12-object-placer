@@ -8,12 +8,20 @@
 
 import { contextBridge, ipcRenderer } from 'electron';
 import type { XopApi, ScanProgress } from '../shared/api.js';
+import { themeFromArgv } from '../shared/theme.js';
 
 const SCAN_PROGRESS = 'xop:scanProgress';
 const SAVE_BEFORE_CLOSE = 'xop:saveBeforeClose';
 
 const api: XopApi = {
   getVersion: () => ipcRenderer.invoke('xop:getVersion'),
+
+  // A value, not a call. Main put the theme on this renderer's command line precisely so the page
+  // can set it before it draws anything; an `await` here would put a frame of the wrong palette on
+  // screen at every launch. `process` in a sandboxed preload is a small polyfill, but `argv` is
+  // part of it.
+  initialTheme: themeFromArgv(process.argv),
+  setTheme: (theme) => ipcRenderer.invoke('xop:setTheme', theme),
   openLog: () => ipcRenderer.invoke('xop:openLog'),
 
   listInstallations: () => ipcRenderer.invoke('xop:listInstallations'),

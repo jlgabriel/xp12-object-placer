@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from '../App.js';
 import { installStubApi, hasRealCatalog, STUB_ENTRIES, type StubState } from './stubApi.js';
 import { preventFileDrop } from '../preventFileDrop.js';
+import { applyTheme } from '../theme.js';
 import { editorStore } from '../state/editorStore.js';
 import '../styles.css';
 
@@ -19,6 +20,9 @@ if (real && !hasRealCatalog()) {
 }
 installStubApi(state, real);
 preventFileDrop();
+// `?theme=light` dresses the harness in the other palette, which is the only way to look at both
+// without a packaged build.
+applyTheme(window.xop.initialTheme);
 
 /**
  * Put objects on the map before anything renders, so the drawing can be checked without first

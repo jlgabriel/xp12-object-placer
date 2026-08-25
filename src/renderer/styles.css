@@ -1,14 +1,94 @@
+/*
+  The two palettes, and the only place either of them exists.
+
+  Every colour in the application comes from this block, which is what made a light theme an
+  afternoon instead of a rewrite: the renderer sets `data-theme` on <html> and nothing else in the
+  application knows a hex value. The rule for anyone adding to this file is therefore simple and
+  worth keeping — no literal colour below this point. The one that is left says why in place.
+
+  The names are roles, not shades, so both themes can answer them honestly:
+    --bg / --panel   the window, and the surfaces laid on it
+    --raise          the face of a control, and the row you are hovering
+    --sink           something you type into
+    --line           a border you are meant to see; --hairline one you are not
+    --accent-bg      the wash under a selected row; --menu-on the one under a menu row
+    --armed-*        the amber that means "this is what the next click places"
+    --caution-*      the warnings an export comes back with
+    --void           the map before its tiles arrive
+*/
 :root {
   --bg: #11151a;
   --panel: #171d24;
+  --raise: #1e262f;
+  --sink: #12171d;
   --line: #26303a;
+  --hairline: #1b232b;
   --text: #d8e0e8;
   --dim: #7c8b9a;
   --accent: #4da3ff;
+  --accent-bg: #1d2a3a;
+  --menu-on: #1f2a35;
   --armed: #f59e0b;
+  --armed-bg: #2a2415;
+  --armed-veil: #2a2415ee;
+  --caution-line: #4a3a1c;
+  --caution-bg: #221c10;
+  --caution-text: #e8d5a8;
   --grip: #22d3ee;
   --warn: #ff6b6b;
+  --warn-bg: #3a1c1c;
+  --warn-line: #5a2b2b;
+  --void: #0c1015;
+  --note-bg: #12171d;
+  --thumb-bg: #161c23;
+  --shadow: #0008;
+  --modal-shadow: #000000aa;
+  --scrim: #070a0ecc;
   color-scheme: dark;
+}
+
+/*
+  The light theme is not the dark one inverted.
+
+  Two things had to change rather than lighten. The blue and the amber are *darker* than their dark
+  counterparts, not paler: #4da3ff on white is a pastel nobody can read, and an accent that fails
+  on the surface it sits on is worse than no accent. And the greys keep their order — the panel is
+  the lightest surface here, the window behind it slightly darker — so the shape of the screen
+  reads the same in both themes even though the direction of the light has flipped.
+
+  What does *not* change is anything that sits on the satellite imagery: the map's own drawing, and
+  the rotation read-out beside the grip. Those answer to the photograph underneath them, which is
+  the same photograph in either theme — hence no --grip here, and the one literal colour further
+  down.
+*/
+:root[data-theme="light"] {
+  --bg: #eef1f4;
+  --panel: #ffffff;
+  --raise: #f1f4f8;
+  --sink: #ffffff;
+  --line: #cdd6df;
+  --hairline: #e7ebf0;
+  --text: #16202b;
+  --dim: #5d6c7b;
+  --accent: #0a68c8;
+  --accent-bg: #e2edfb;
+  --menu-on: #e8eef6;
+  --armed: #b4740a;
+  --armed-bg: #fdf1d6;
+  --armed-veil: #fdf1d6f2;
+  --caution-line: #e0c584;
+  --caution-bg: #fdf6e3;
+  --caution-text: #6b5312;
+  --warn: #c62b2b;
+  --warn-bg: #fdeaea;
+  --warn-line: #f0b9b9;
+  --void: #dde3e9;
+  --note-bg: #eef2f7;
+  --thumb-bg: #f2f5f8;
+  --shadow: #1e293b26;
+  --modal-shadow: #1e293b40;
+  --scrim: #334155a6;
+  color-scheme: light;
 }
 
 * {
@@ -69,16 +149,33 @@ header .document b {
   color: var(--accent);
 }
 
+/* The installation and the theme switch, held together at the right-hand end. Two elements each
+   pushing itself there with `margin-left: auto` would strand the first one in the middle. */
+header .header-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
+  max-width: 55%;
+}
+
+/* Small and quiet: it is a preference, not part of the work. */
+header .theme {
+  flex: none;
+  padding: 2px 9px;
+  font-size: 12px;
+}
+
 /* Reads as the caption it used to be, behaves as the button it now is: no chrome until you are
    over it, so the header keeps its shape and the affordance still announces itself. */
 header .installation {
-  margin-left: auto;
+  min-width: 0;
   color: var(--dim);
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 40%;
   padding: 2px 6px;
   background: none;
   border: 1px solid transparent;
@@ -102,7 +199,7 @@ header em {
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  background: #3a1c1c;
+  background: var(--warn-bg);
   color: var(--warn);
   border-bottom: 1px solid var(--line);
 }
@@ -244,7 +341,7 @@ main {
 
 button {
   padding: 5px 10px;
-  background: #1e262f;
+  background: var(--raise);
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -275,7 +372,7 @@ button.danger:hover {
 .filters input[type="search"] {
   grid-column: 1 / -1;
   padding: 7px 10px;
-  background: #12171d;
+  background: var(--sink);
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -291,7 +388,7 @@ button.danger:hover {
 
 .filters select {
   padding: 4px 6px;
-  background: #12171d;
+  background: var(--sink);
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -330,7 +427,7 @@ button.danger:hover {
   text-align: left;
   background: none;
   border: 0;
-  border-bottom: 1px solid #1b232b;
+  border-bottom: 1px solid var(--hairline);
   border-radius: 0;
 }
 
@@ -353,7 +450,7 @@ button.danger:hover {
 
 .entries li button:hover:not(:disabled),
 .placed li button:hover {
-  background: #1e262f;
+  background: var(--raise);
 }
 
 .entries .name,
@@ -400,7 +497,7 @@ button.danger:hover {
 
 /* The armed object: what the next click on the map will place. */
 .entries li.armed button {
-  background: #2a2415;
+  background: var(--armed-bg);
   box-shadow: inset 3px 0 0 var(--armed);
 }
 
@@ -418,7 +515,7 @@ button.danger:hover {
 
 .entries .facts em.missing {
   color: var(--warn);
-  border-color: #5a2b2b;
+  border-color: var(--warn-line);
 }
 
 .no-matches,
@@ -506,11 +603,11 @@ button.danger:hover {
 }
 
 .cat-node:hover {
-  background: #1e262f;
+  background: var(--raise);
 }
 
 .cat-node.sel {
-  background: #1d2a3a;
+  background: var(--accent-bg);
   color: var(--accent);
 }
 
@@ -583,7 +680,7 @@ button.danger:hover {
 .goto input {
   width: 180px;
   padding: 5px 8px;
-  background: #12171d;
+  background: var(--sink);
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -613,7 +710,7 @@ button.danger:hover {
 .airport-input {
   width: 190px;
   padding: 5px 8px;
-  background: #12171d;
+  background: var(--sink);
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -636,7 +733,7 @@ button.danger:hover {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 6px;
-  box-shadow: 0 8px 20px #0008;
+  box-shadow: 0 8px 20px var(--shadow);
 }
 
 .airport-list {
@@ -666,7 +763,7 @@ button.danger:hover {
 }
 
 .airport-option.on {
-  background: #1f2a35;
+  background: var(--menu-on);
 }
 
 .airport-code {
@@ -685,7 +782,7 @@ button.danger:hover {
 .xop-map {
   flex: 1;
   min-height: 0;
-  background: #0c1015;
+  background: var(--void);
 }
 
 /* Leaflet writes its own classes onto this element, so nothing here may be applied by React. */
@@ -703,7 +800,7 @@ button.danger:hover {
   padding: 7px 12px;
   border: 1px solid var(--armed);
   border-radius: 6px;
-  background: #2a2415ee;
+  background: var(--armed-veil);
   color: var(--text);
   font-size: 12px;
   overflow: hidden;
@@ -721,13 +818,17 @@ kbd {
   padding: 0 4px;
   border: 1px solid var(--line);
   border-radius: 3px;
-  background: #12171d;
+  background: var(--sink);
   font-family: inherit;
   font-size: 11px;
 }
 
 /* The live readout while the rotate grip is being dragged. Leaflet's default tooltip is a white
-   box, which is unreadable over satellite imagery at night-mode contrast. */
+   box, which is unreadable over satellite imagery.
+
+   The one place in this file that keeps a literal colour, and on purpose: this label sits on the
+   photograph, beside a grip the map draws in the same cyan, and neither of them changes with the
+   theme. Following the light palette here would put pale cyan on white over an aerial photo. */
 .leaflet-tooltip.xop-rotate-tip {
   background: #0c1015ee;
   border: 1px solid var(--grip);
@@ -743,7 +844,7 @@ kbd {
 /* ── what has been placed ─────────────────────────────────────────────────────────────────── */
 
 .placed li.on button {
-  background: #2a2415;
+  background: var(--armed-bg);
   box-shadow: inset 3px 0 0 var(--armed);
 }
 
@@ -821,7 +922,7 @@ button.primary:disabled {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #070a0ecc;
+  background: var(--scrim);
 }
 
 .modal {
@@ -832,7 +933,7 @@ button.primary:disabled {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 10px;
-  box-shadow: 0 18px 60px #000000aa;
+  box-shadow: 0 18px 60px var(--modal-shadow);
 }
 
 .modal h2 {
@@ -876,7 +977,7 @@ button.primary:disabled {
 
 .modal .field input {
   padding: 8px 10px;
-  background: #12171d;
+  background: var(--sink);
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -896,14 +997,16 @@ button.primary:disabled {
   margin: 12px 0 0;
   padding: 8px 10px;
   border-left: 3px solid var(--accent);
-  background: #12171d;
+  /* Its own token, not --sink: a field and a panel are both white in the light theme, so a note
+     painted like a field would vanish into the dialog it is warning you about. */
+  background: var(--note-bg);
   border-radius: 0 6px 6px 0;
   color: var(--text);
   font-size: 12px;
 }
 
 .error.inline {
-  border: 1px solid #5a2b2b;
+  border: 1px solid var(--warn-line);
   border-radius: 6px;
   margin: 0 0 12px;
 }
@@ -942,11 +1045,11 @@ button.primary:disabled {
 
 .modal .warnings li {
   padding: 7px 10px;
-  border: 1px solid #4a3a1c;
+  border: 1px solid var(--caution-line);
   border-left-width: 3px;
   border-radius: 6px;
-  background: #221c10;
-  color: #e8d5a8;
+  background: var(--caution-bg);
+  color: var(--caution-text);
   font-size: 12px;
 }
 
@@ -993,7 +1096,7 @@ button.primary:disabled {
   width: 44px;
   height: 44px;
   border-radius: 4px;
-  background: #161c23;
+  background: var(--thumb-bg);
   border: 1px solid var(--line);
   display: block;
   /* Reserved before the picture arrives. One appearing and pushing the list down would move the
@@ -1006,6 +1109,62 @@ button.primary:disabled {
   height: 100%;
   display: block;
   object-fit: contain;
+}
+
+/* ── the hover preview ──────────────────────────────────────────────────────── */
+
+/* Portalled to <body> and placed from the hovered row's own bounding rect, so nothing — the
+   panel's scrolling, the map's stacking context — can clip it. `pointer-events: none` matters more
+   than it looks: the box opens right beside the cursor, and a box that could take the hover would
+   pull it off the row, close itself, and flicker there forever. Above the map and its airport
+   dropdown (1200), below the modal layer (2000). */
+.object-preview {
+  position: fixed;
+  z-index: 1500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  max-width: 258px;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px var(--shadow);
+  pointer-events: none;
+}
+
+/* Square, like the row's 44px frame and for the same reason: the objects are not, and a box that
+   changed shape with each one would have the popup jumping around the cursor. */
+.object-preview-frame {
+  width: 240px;
+  height: 240px;
+  border-radius: 6px;
+  background: var(--thumb-bg);
+  overflow: hidden;
+}
+
+.object-preview-frame img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+/* The whole virtual path, wrapped rather than cut: this is the one place it is shown in full, and
+   half of it is worth nothing. */
+.object-preview-path {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 11.5px;
+  line-height: 1.4;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.object-preview-missing {
+  color: var(--warn);
+  font-size: 11.5px;
+  text-align: center;
 }
 
 .inspector-actions {

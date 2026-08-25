@@ -31,6 +31,11 @@ Under D4 both projects are GPL-3.0, so this is a copy, with attribution in the f
   knows about the Earth, not about Aerofly, which is what made it portable.
 - `arrange.ts` — row axis, along/cross projection, line-up and even-spacing. ~135 lines. **Not taken
   yet**; it will be, when XOP grows the arrange tools.
+- `src/renderer/catalog/previewPosition.ts` — where the hover preview lands beside the row it
+  belongs to. **Ported**, ~30 lines. It is about a viewport and a box; the one change is that XOP
+  anchors on the whole row rather than on the thumbnail, so the popup opens clear of the panel. The
+  popup's *content* did not come across and could not: PCT enlarges a photograph a user supplied,
+  because Aerofly's objects cannot be read, while XOP re-renders the object itself (D19).
 - `src/core/airports/search.ts` — the typeahead's three tiers (code exact, code prefix, name
   substring) and the accent folding that lets "benitez" find *Benítez*. **Ported**, ~40 lines of
   logic. It is about how people type, not about a simulator. What did **not** come across is where
@@ -59,6 +64,8 @@ Not copied as files — rebuilt against the X-Plane domain.
   Leaflet.
 - A **catalog cache** built once by a scan and read cheaply thereafter.
 - A committed **renderer preview harness**, so the UI can be verified by DOM before it is committed.
+- The **delayed, portalled, pointer-transparent popup** on a catalog row — PCT's `HoverPreview`,
+  asked for in its forum thread #170. Same shape, different content (D19).
 - **Zod schemas** at the project-file boundary, so a hand-edited or older file fails loudly.
 
 ## Refused: the Aerofly domain
@@ -75,7 +82,7 @@ None of this survives the crossing. If you see it in this repo, it is a bug.
 | `airport_light`, `plant`, `heliport`, runways, parking | Forbidden by D2. |
 | The POI folder-name encoding | X-Plane pack folders are named by the user; the geographic encoding is in the **tile filename**, which is a different thing entirely. |
 | The user-measured `footprints.json` | Unnecessary. OBJ8 is readable, so footprints are computed from geometry. |
-| User-supplied catalog photos | Unnecessary for the same reason: thumbnails are rendered from the objects themselves. |
+| User-supplied catalog photos | Unnecessary for the same reason: thumbnails are rendered from the objects themselves — including the enlarged one the hover preview shows. |
 
 ## Refused: the structural mistakes
 

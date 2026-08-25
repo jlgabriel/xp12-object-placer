@@ -11,6 +11,7 @@ import type { GroundBox, PlacedObject } from '../core/model.js';
 import type { Project } from '../core/project/project.js';
 import type { DdsFormat } from '../core/dds/dds.js';
 import type { Bounds, Obj8Mesh } from '../core/obj8/parse.js';
+import type { Theme } from './theme.js';
 
 /** One mip of an object's albedo, still compressed, ready for the GPU. */
 export interface GeometryTexture {
@@ -167,6 +168,17 @@ export interface UninstallResult {
 }
 
 export interface XopApi {
+  /**
+   * The palette the window opened with — a value, already there, not a promise.
+   *
+   * Main resolves it before the window exists (stored choice, else the operating system's) and
+   * hands it to the preload on the command line, so the renderer can put it on <html> before the
+   * first paint. See shared/theme.ts.
+   */
+  readonly initialTheme: Theme;
+  /** Remember a palette the user just picked. Takes effect in this window immediately. */
+  setTheme(theme: Theme): Promise<void>;
+
   /**
    * The application version.
    *

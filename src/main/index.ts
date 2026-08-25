@@ -7,10 +7,12 @@
  */
 
 import { join } from 'node:path';
-import { app, BrowserWindow, dialog, session, shell } from 'electron';
+import { app, BrowserWindow, dialog, nativeTheme, session, shell } from 'electron';
 import { registerIpc } from './ipc.js';
 import { logError, logInfo, logSessionStart } from './log.js';
 import { documentName, isDirty } from './projectFile.js';
+import { readSettings } from './settings.js';
+import { THEME_FLAG, WINDOW_BACKGROUND, type Theme } from '../shared/theme.js';
 
 /** electron-vite sets this in dev (the Vite renderer dev-server URL); undefined when packaged. */
 const RENDERER_URL = process.env['ELECTRON_RENDERER_URL'];
@@ -40,7 +42,23 @@ const fatal = (what: string) => (error: unknown) => {
 process.on('uncaughtException', fatal('uncaught exception in main'));
 process.on('unhandledRejection', fatal('unhandled promise rejection in main'));
 
+/**
+ * The palette this window opens with.
+ *
+ * A first run has nobody to ask, so it asks the operating system; after that the stored choice
+ * wins and keeps winning. See shared/theme.ts for why there is no third "follow the system" state.
+ */
+function startingTheme(): Theme {
+  const chosen = readSettings(app.getPath('userData')).theme;
+  return chosen ?? (nativeTheme.shouldUseDarkColors ? 'dark' : 'light');
+}
+
 function createWindow(): void {
+  const theme = startingTheme();
+  // Native windows main puts up itself — the unsaved-work box, the file dialogs — read this, so
+  // they match the window they belong to rather than whatever the desktop is set to.
+  nativeTheme.themeSource = theme;
+
   const win = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -48,13 +66,17 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#11151a',
+    backgroundColor: WINDOW_BACKGROUND[theme],
     title: `XP Object Placer ${__APP_VERSION__}`,
     webPreferences: {
       preload: join(import.meta.dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true, // the preload is emitted CJS so this can stay on
+      // The theme travels on the command line because the preload can read it there *synchronously*.
+      // Asked for over IPC it could only arrive after the first paint, which is a frame of the wrong
+      // palette on every launch.
+      additionalArguments: [`${THEME_FLAG}${theme}`],
     },
   });
 

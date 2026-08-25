@@ -11,7 +11,15 @@
  */
 
 import { createHash } from 'node:crypto';
-import { app, BrowserWindow, dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  nativeTheme,
+  shell,
+  type IpcMainInvokeEvent,
+} from 'electron';
 import { z } from 'zod';
 import { describeInstallation, findInstallations, isInstallation } from '../node/findInstallations.js';
 import { readCachedCatalog, readCachedObjectFiles } from './catalogCache.js';
@@ -21,6 +29,7 @@ import { GeometryError, readObjectGeometry } from '../node/objectGeometry.js';
 import { runScan, ScanError } from './runScan.js';
 import { logError, logFile, logInfo } from './log.js';
 import { readSettings, writeSettings } from './settings.js';
+import { WINDOW_BACKGROUND, type Theme } from '../shared/theme.js';
 import { planExport } from '../core/export/planExport.js';
 import {
   InstallError,
@@ -445,6 +454,22 @@ export function registerIpc(): void {
   handle('xop:markDirty', (event, raw: unknown): DocumentState => {
     setDirty(raw === true);
     return retitle(event);
+  });
+
+  /**
+   * Remember the palette the user just picked.
+   *
+   * Three things have to agree, and they are all here because they all outlive the renderer: the
+   * setting the next launch reads, the colour Electron paints behind the page (or a resize drags a
+   * dark rectangle across a light window), and `nativeTheme`, which is what makes main's own
+   * dialogs — the unsaved-work box, the file pickers — match the window they belong to.
+   */
+  handle('xop:setTheme', (event, raw: unknown): void => {
+    if (raw !== 'light' && raw !== 'dark') throw new UserFacingError('unknown theme');
+    const theme: Theme = raw;
+    writeSettings(userData, { theme });
+    nativeTheme.themeSource = theme;
+    BrowserWindow.fromWebContents(event.sender)?.setBackgroundColor(WINDOW_BACKGROUND[theme]);
   });
 
   // destroy(), not close(): close() would fire the guard in index.ts again, and the user has

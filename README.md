@@ -100,6 +100,15 @@ are drawn when a row comes into view and kept afterwards, so the list fills in a
 instant every time after that. Nothing is downloaded and nothing is shipped: they are rendered on
 your machine, from your files, into a local cache.
 
+Rest the mouse on a row and the object is **drawn again, larger**, beside the list, with its whole
+virtual path underneath — the string that goes into the DSF, which the row itself can only show the
+end of. A 44-pixel picture tells you a hangar from an aeroplane; it does not tell you one hangar
+from the next, and there are 3 837 of them ([D19](docs/DECISIONS.md)).
+
+The window comes in **light and dark**. The first run follows your desktop, the button in the
+header swaps it, and from then on it is your choice — XOP will not change it back on you
+([D18](docs/DECISIONS.md)).
+
 The data layer also runs headless:
 
 ```bash
