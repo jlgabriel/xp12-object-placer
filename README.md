@@ -60,6 +60,14 @@ actually has. Pick one, click the map, and it lands there: drawn as its real foo
 its rotation, with a dot on the point the coordinate refers to. Drag the box to move it, drag the
 cyan grip to turn it against the satellite imagery.
 
+**Libraries you keep somewhere else** — another drive, a folder outside X-Plane — are read too, as
+long as they are linked into `Custom Scenery` with a junction or a symlink. That is not a limit XOP
+imposes: X-Plane reads packs from `Custom Scenery` and `Resources/default scenery` and nowhere else,
+and an absolute path in `scenery_packs.ini` is a line it deletes at the next startup — measured in
+the simulator, three spellings, [`probes/H9`](probes/H9/FLIGHT.md). A link works for X-Plane, WED
+and everything else as well, which is why XOP offers no setting of its own for it
+([D20](docs/DECISIONS.md)).
+
 To get somewhere, type it. The **Airport** box takes a code or a name — `SCTB`, `benitez`,
 `san francisco` — and flies the map there, and the list is built from **your** installation, so it
 knows the fields a scenery pack you installed added. Or type a latitude and a longitude, for
