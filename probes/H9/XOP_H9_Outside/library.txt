@@ -1,0 +1,5 @@
+A
+1200
+LIBRARY
+
+EXPORT lib/xop/h9/outside_pillar.obj	objects/box.obj
