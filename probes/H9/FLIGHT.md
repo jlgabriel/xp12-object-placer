@@ -123,6 +123,11 @@ the other way" are different answers with different consequences.
 2. Look east, at the row about 200 m out. Take a screenshot.
 3. Quit.
 
+The row runs east–west, so from the threshold it recedes away from you rather than lying across
+your view. Nearest is the **pillar** — thin, and at 30 m the tallest of the three. Then the **stock
+control tower**. Farthest is the **slab**, wide and low. The three silhouettes were chosen to stay
+apart at that angle; nothing here depends on judging a distance.
+
 ## How to read the result
 
 **Primary — the view.** Three things in an east–west row, or fewer:
