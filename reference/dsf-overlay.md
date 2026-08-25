@@ -203,7 +203,8 @@ SCENERY_PACK Custom Scenery/X-Plane Landmarks - Paris/  ← overlays: objects, l
 …
 SCENERY_PACK Custom Scenery/Global_Forests_v2/
 SCENERY_PACK Custom Scenery/X-Codr Designs Library/     ← object libraries
-SCENERY_PACK D:\…\XPME_South_America/                   ← photoscenery / mesh, last = lowest
+SCENERY_PACK D:\…\XPME_South_America/                   ← mesh / photoscenery, last = lowest
+                                                          ⚠️ and dead: X-Plane deletes it, see below
 ```
 
 Four tiers, top to bottom: **custom airports · `*GLOBAL_AIRPORTS*` · overlays · libraries · mesh and
@@ -225,7 +226,8 @@ by one party — **X-Plane, the user, and other tools all write to it.**
 2. **Write our own `SCENERY_PACK` line, in the overlay tier** — never rely on X-Plane's discovery,
    which appends last and therefore lowest.
 3. **Never reorder anything else.** Insert one line and leave every other line exactly where it was.
-4. Never write an absolute path.
+4. Never write an absolute path. ✅ Measured: X-Plane **ignores** one and **deletes the line** at
+   the next startup — three spellings tried, including the one above, probe H9.
 5. **Say what was done.** Show the user the line and where it went.
 
 ### What probe H0 also measured (2026-08-22) ✅

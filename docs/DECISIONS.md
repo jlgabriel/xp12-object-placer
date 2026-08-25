@@ -554,3 +554,55 @@ not: PCT enlarges a photograph the user supplied, because Aerofly's objects cann
 the geometry, so it draws it. One deliberate change: the popup anchors on the **whole row** rather
 than on the little picture, so it opens clear of the panel and over the map instead of covering the
 name and the measurements of the object it is enlarging.
+
+---
+
+## D20 — Libraries outside the installation are reached with a link, not with a setting (2026-08-25)
+
+**XOP scans `Resources/default scenery` and `Custom Scenery`, and nothing else.** There is no
+setting for extra library folders, and there will not be one.
+
+A user who keeps third-party libraries elsewhere — another drive, a curated folder, whatever
+xOrganizer set up — points a **junction or symlink** at them from inside `Custom Scenery`. XOP then
+reads them without knowing they are not local, because `readdirSync` and `statSync` follow links.
+
+**Why:** because that is where X-Plane looks, measured rather than assumed
+([`probes/H9`](../probes/H9/FLIGHT.md), flown 2026-08-25 on 12.4.3).
+
+The request that started this — a forum post asking for external folders in the search path —
+looked like a small change: `scanLibraries` has two roots hardcoded and adding more is a loop over
+a longer array. The reason it is not a small change is that **a catalog may only widen to where the
+simulator itself reads**. X-Plane resolves a virtual path it cannot find by not drawing the object,
+so an object XOP offered from a folder X-Plane never reads would survive placing, exporting,
+installing and flying out to look at it. The user would find bare grass and a modal blaming a pack
+they did not write.
+
+So the probe asked where X-Plane actually reads, and the answer is narrow:
+
+- **An absolute path in `scenery_packs.ini` does nothing.** Three spellings — forward slashes,
+  backslashes, and the exact backslash-with-trailing-slash form observed in a real user's file —
+  and all three were **deleted from the file** at the next startup. The pack never appeared in the
+  scenery list. It is not a search path; it is a line the simulator removes.
+- **A junction is a pack, completely.** X-Plane lists it under its link name like any real folder,
+  on another drive, and the library inside it resolves for any overlay that references it.
+
+**Consequences.**
+
+- No `libraryFolders` setting, no folder picker for it, no extra roots in the scan, and no cache key
+  that has to fold them in.
+- The answer to the forum request is a link, and it is a better answer than the setting would have
+  been: a folder linked into `Custom Scenery` works for **X-Plane and every other tool**, not only
+  for XOP. A setting would have made XOP the one application that could see objects nobody else
+  could draw.
+- `scanAirports` already refuses ini entries that escape the installation, through `containedJoin`.
+  That was written as containment against a file other tools write. It turns out to match what
+  X-Plane itself does with those lines, which is the comfortable direction for a guess to land.
+- The `reference/dsf-overlay.md` rule "never write an absolute path" keeps standing, and now has a
+  measurement under it instead of caution.
+
+**What is deliberately still open.** The probe also found that X-Plane is **not silent** about an
+unresolvable virtual path — it raises a modal and logs `E/SCN` per reference. Several comments in
+this codebase say otherwise. They are not being edited yet: the case XOP marks `unavailable` is a
+*different* route through the loader — the path resolves and the file behind it was never shipped —
+and H9 did not measure that one. It gets its own probe before anything is rewritten on the strength
+of this one.

@@ -168,9 +168,15 @@ parser takes everything after the virtual path verbatim.
 ship `Library.txt`. Match case-insensitively when *finding* it — on Windows a case-sensitive match
 would silently lose whole libraries in a way the person reporting it could never reproduce.
 
-**A pack can be a junction or a symlink.** `xOrganizer` and similar tools link packs in from
+**A pack can be a junction or a symlink.** ✅ `xOrganizer` and similar tools link packs in from
 elsewhere. Node's `readdirSync`/`statSync` follow them; `find` does not, which is how one library
 went missing from a first count.
+
+**And X-Plane follows them too** — probe H9, on 12.4.3: a junction under `Custom Scenery` pointing
+at a pack on another drive is listed in the startup scenery order under its link name, and the
+library inside it resolves for an overlay that references it. This is the **only** way a library
+outside the installation is read. An absolute path in `scenery_packs.ini` is not: the simulator
+deletes the line (D20).
 
 **Stock libraries contain broken lines.** Five `EXPORT`s in X-Plane 12.4.3 are missing the separator
 entirely, so the two paths run together:

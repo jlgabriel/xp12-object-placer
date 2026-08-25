@@ -232,32 +232,53 @@ not one. Either that line was equally dead and nobody ever noticed — entirely 
 photoscenery that is only served on demand — or the **backslash** spelling is honoured where the
 forward-slash one is not. Round 2 is that question.
 
-## Round 2 — the retry the reading table asks for, plus the fallback
+## Result — round 2, flown 2026-08-25, X-Plane 12.4.3
 
-Installed, unflown:
+**✅ The junction works. ❌ The absolute path does not, in any of the three spellings tried, and
+X-Plane deletes every one of them at startup.**
 
-- **Two more spellings** appended to the ini, pointing at the same folder. The pack list shows which
-  of them, if any, X-Plane accepts, whatever happens in the view:
+All three shapes in the view — pillar, tower, slab — and **no dialog**. `Log.txt` has zero
+`Failed to find resource` lines: the modal that opened round 1 was exactly what we thought it was,
+and it stopped when the path resolved.
 
-  ```
-  SCENERY_PACK C:\XOP-probe-external\XOP_H9_Outside\
-  SCENERY_PACK C:\XOP-probe-external\XOP_H9_Outside/
-  ```
+The pack list names the route:
 
-  The second is the exact form observed in the wild — backslashes, trailing forward slash.
+```
+ 34 Custom Scenery/XOP_H9_Inside/
+ 35 Custom Scenery/XOP_H9_Overlay/
+ 36 Custom Scenery/XOP_H9_Link/      ← the junction, listed as an ordinary pack
+ 37 Global Scenery/Hsimulators2/
+```
 
-- **A junction**, `Custom Scenery\XOP_H9_Link` → `C:\XOP-probe-external\XOP_H9_Outside`. This is the
-  mechanism the project already believes works and would recommend to a user, on the strength of
-  third-party tools using it and nothing else. It has never been measured here either.
+**`XOP_H9_Link` is a junction to `C:\XOP-probe-external\XOP_H9_Outside`, on another drive**, and
+X-Plane lists it exactly like any folder that is really there. It has no idea, and neither does
+anything else: `readdirSync`/`statSync` follow it too, which is why XOP has been reading packs
+linked in this way since before anybody asked for the feature.
 
-The backup taken before round 2 is `scenery_packs.ini.before-H9b` on the Desktop; the pristine
-pre-probe one is still beside it as `.before-H9`.
+Nothing in the whole log mentions `XOP-probe-external`. Both absolute spellings —
 
-**Same flight: SCEL, 17L, look east.** The two readings do not collide — the pillar appearing says
-*some* route worked, and the pack list says which:
+```
+SCENERY_PACK C:\XOP-probe-external\XOP_H9_Outside\
+SCENERY_PACK C:\XOP-probe-external\XOP_H9_Outside/     ← the exact form seen in the wild
+```
 
-| pack list contains | reading |
-|---|---|
-| `XOP_H9_Link/` only | ✅ Junctions work, absolute paths do not, in any spelling. The catalog may widen only to what `Custom Scenery` reaches, links included — which XOP already reads today. |
-| a `C:\…` entry as well | The absolute form works when spelled that way. Record the exact spelling: that is the one XOP would have to read, and the one the ini writer must never produce. |
-| neither, and no pillar | Junctions do not work either, and the last supported answer for keeping libraries elsewhere is "do not". |
+— were **gone from the file** after startup, the same as round 1's forward-slash form. Three
+spellings, three deletions, one launch each.
+
+⇒ The line read off a real user's ini during H0 was **dead weight**. It had been sitting in that
+file doing nothing, being deleted and re-added by whatever tool put it there. That is the answer to
+"is the observed line evidence?", and it is the reason this sheet exists.
+
+## What the probe settles
+
+1. **X-Plane 12 reads scenery packs from `Custom Scenery` and `Resources/default scenery`, and from
+   nowhere else.** An absolute path in `scenery_packs.ini` is not a search path; it is a line the
+   simulator removes.
+2. **A junction or symlink under `Custom Scenery` is a pack, fully.** Another drive is fine. The
+   library inside it resolves for any overlay, and the pack list shows it under its link name.
+3. **An unresolvable virtual path is loud, not silent** — a modal, and `E/SCN` lines per reference.
+   ⚠️ Still unmeasured: the `unavailable` case, where the path resolves and the file behind it was
+   never shipped. Different route, its own probe.
+
+⇒ **`scanLibraries` needs no new roots**, and XOP needs no setting for extra folders. It already
+reaches everything X-Plane reaches, by the same mechanism, for the same reason. See **D20**.
