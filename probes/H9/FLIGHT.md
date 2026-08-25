@@ -173,9 +173,91 @@ deleted folders by itself; that one points at a folder it never managed, so it w
 the backup over the file is the wrong way to do it — X-Plane has legitimately rewritten the file
 since it was taken.
 
-## Result — not yet flown
+## Result — round 1, flown 2026-08-25, X-Plane 12.4.3
 
-_To be filled in after the flight: the screenshot, the three ✓/✗, what happened to the line, and
-anything `Log.txt` had to say. If the answer is ❌, it goes here in the same words — a probe that
-came out against the feature is worth exactly as much as one that came out for it, and this file is
-what D20 will point at either way._
+**❌ NO. X-Plane 12 does not load a pack named by an absolute path in `scenery_packs.ini`. It
+deletes the line.**
+
+**The view**, from 17L looking east: the stock control tower ✓, the slab ✓, **no pillar**. Both
+controls stand, so this is the third row of the reading table and not one of the void ones — the
+overlay loaded, and the generated box is a perfectly good object. The slab draws plain grey,
+untextured, exactly as an OBJ8 with no `TEXTURE` should.
+
+**`Log.txt`** agrees, and names the one thing that failed:
+
+```
+E/SCN: Failed to find resource 'lib/xop/h9/outside_pillar.obj', referenced from
+       scenery package 'Custom Scenery/XOP_H9_Overlay/'.
+```
+
+**The pack list settles the mechanism.** X-Plane prints what it found at startup — 39 entries, and
+the outside pack is in none of them:
+
+```
+ 33 Custom Scenery/X-Codr Designs Library/
+ 34 Custom Scenery/XOP_H9_Inside/       ← added by X-Plane itself
+ 35 Custom Scenery/XOP_H9_Overlay/      ← added by X-Plane itself
+ 36 Global Scenery/Hsimulators2/
+```
+
+**And the line is gone.** After startup the file is the backup plus X-Plane's own two lines, and
+nothing else. That is the **gone** row of the second table, which this sheet called decisive before
+anybody flew: a setup the simulator erases on every launch is not something to build a feature on.
+
+### ★ The finding that was not the question
+
+**X-Plane is not silent about a virtual path it cannot resolve.** It raises a modal naming the
+guilty pack, and writes the reason four times over:
+
+```
+E/SCN: Unable to locate object: lib/xop/h9/outside_pillar.obj
+E/SYS: MACIBM_alert: There was a problem loading the scenery package:
+E/SYS: MACIBM_alert: Custom Scenery/XOP_H9_Overlay/
+E/SYS: MACIBM_alert: The scenery may not look correct.
+```
+
+"X-Plane resolves a virtual path it cannot find by drawing nothing, silently" is written into
+`src/shared/api.ts`, into `measureObjects`, and into H8's sheet. For **an unresolvable virtual
+path** it is wrong, and it is the sentence those comments use to justify what they do.
+
+⚠️ What this does **not** establish: the case XOP marks `unavailable` is a different one — the
+library exports the path, the path resolves, and the *file behind it* was never shipped. That is a
+second route through the loader and nothing here measured it. The comments stay as they are until
+it has its own probe.
+
+### What it says about the line that started this
+
+The `SCENERY_PACK D:\…\XPME_South_America/` read off a real user's ini is now two possibilities,
+not one. Either that line was equally dead and nobody ever noticed — entirely plausible for
+photoscenery that is only served on demand — or the **backslash** spelling is honoured where the
+forward-slash one is not. Round 2 is that question.
+
+## Round 2 — the retry the reading table asks for, plus the fallback
+
+Installed, unflown:
+
+- **Two more spellings** appended to the ini, pointing at the same folder. The pack list shows which
+  of them, if any, X-Plane accepts, whatever happens in the view:
+
+  ```
+  SCENERY_PACK C:\XOP-probe-external\XOP_H9_Outside\
+  SCENERY_PACK C:\XOP-probe-external\XOP_H9_Outside/
+  ```
+
+  The second is the exact form observed in the wild — backslashes, trailing forward slash.
+
+- **A junction**, `Custom Scenery\XOP_H9_Link` → `C:\XOP-probe-external\XOP_H9_Outside`. This is the
+  mechanism the project already believes works and would recommend to a user, on the strength of
+  third-party tools using it and nothing else. It has never been measured here either.
+
+The backup taken before round 2 is `scenery_packs.ini.before-H9b` on the Desktop; the pristine
+pre-probe one is still beside it as `.before-H9`.
+
+**Same flight: SCEL, 17L, look east.** The two readings do not collide — the pillar appearing says
+*some* route worked, and the pack list says which:
+
+| pack list contains | reading |
+|---|---|
+| `XOP_H9_Link/` only | ✅ Junctions work, absolute paths do not, in any spelling. The catalog may widen only to what `Custom Scenery` reaches, links included — which XOP already reads today. |
+| a `C:\…` entry as well | The absolute form works when spelled that way. Record the exact spelling: that is the one XOP would have to read, and the one the ini writer must never produce. |
+| neither, and no pillar | Junctions do not work either, and the last supported answer for keeping libraries elsewhere is "do not". |
