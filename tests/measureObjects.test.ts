@@ -35,7 +35,10 @@ function workspace(files: Record<string, string>): string {
   return root;
 }
 
-function object(virtualPath: string, variants: { pkg: string; file: string }[]): CatalogObject {
+function object(
+  virtualPath: string,
+  variants: { pkg: string; path: string; file: string }[],
+): CatalogObject {
   return {
     virtualPath,
     name: 'thing',
@@ -43,6 +46,7 @@ function object(virtualPath: string, variants: { pkg: string; file: string }[]):
     visibility: 'public',
     variants: variants.map((v) => ({
       packageName: v.pkg,
+      packagePath: v.path,
       relativePath: v.file,
       directive: 'EXPORT',
     })),
@@ -53,10 +57,9 @@ function object(virtualPath: string, variants: { pkg: string; file: string }[]):
 describe('measureObjects', () => {
   it('measures the object', () => {
     const root = workspace({ 'objects/box.obj': BOX });
-    const { measurements } = measureObjects(
-      [object('lib/box.obj', [{ pkg: 'p', file: 'objects/box.obj' }])],
-      new Map([['p', root]]),
-    );
+    const { measurements } = measureObjects([
+      object('lib/box.obj', [{ pkg: 'p', path: root, file: 'objects/box.obj' }]),
+    ]);
     expect(measurements[0]!.size).toEqual({ width: 4, height: 3, depth: 6 });
   });
 
@@ -64,15 +67,12 @@ describe('measureObjects', () => {
     // A library can export a file its package never shipped. Stopping at the first variant would
     // report the object as unmeasurable while a perfectly good copy sits in the next one.
     const root = workspace({ 'objects/b.obj': BOX });
-    const { measurements, failures } = measureObjects(
-      [
-        object('lib/thing.obj', [
-          { pkg: 'p', file: 'objects/missing.obj' },
-          { pkg: 'p', file: 'objects/b.obj' },
-        ]),
-      ],
-      new Map([['p', root]]),
-    );
+    const { measurements, failures } = measureObjects([
+      object('lib/thing.obj', [
+        { pkg: 'p', path: root, file: 'objects/missing.obj' },
+        { pkg: 'p', path: root, file: 'objects/b.obj' },
+      ]),
+    ]);
     expect(failures).toEqual([]);
     expect(measurements).toHaveLength(1);
     expect(measurements[0]!.measuredFile).toContain('b.obj');
@@ -80,15 +80,12 @@ describe('measureObjects', () => {
 
   it('reports the object as missing only when every variant fails', () => {
     const root = workspace({});
-    const { measurements, failures } = measureObjects(
-      [
-        object('lib/thing.obj', [
-          { pkg: 'p', file: 'objects/gone.obj' },
-          { pkg: 'p', file: 'objects/also-gone.obj' },
-        ]),
-      ],
-      new Map([['p', root]]),
-    );
+    const { measurements, failures } = measureObjects([
+      object('lib/thing.obj', [
+        { pkg: 'p', path: root, file: 'objects/gone.obj' },
+        { pkg: 'p', path: root, file: 'objects/also-gone.obj' },
+      ]),
+    ]);
     expect(measurements).toEqual([]);
     // One line, not one per variant: five identical "file not found" entries help nobody.
     expect(failures).toHaveLength(1);
@@ -97,33 +94,39 @@ describe('measureObjects', () => {
 
   it('skips past an empty placeholder to a variant with real geometry', () => {
     const root = workspace({ 'objects/stub.obj': EMPTY, 'objects/real.obj': BOX });
-    const { measurements } = measureObjects(
-      [
-        object('lib/thing.obj', [
-          { pkg: 'p', file: 'objects/stub.obj' },
-          { pkg: 'p', file: 'objects/real.obj' },
-        ]),
-      ],
-      new Map([['p', root]]),
-    );
+    const { measurements } = measureObjects([
+      object('lib/thing.obj', [
+        { pkg: 'p', path: root, file: 'objects/stub.obj' },
+        { pkg: 'p', path: root, file: 'objects/real.obj' },
+      ]),
+    ]);
     expect(measurements).toHaveLength(1);
     expect(measurements[0]!.size.height).toBe(3);
   });
 
   it('calls an object with nothing but a header what it is', () => {
     const root = workspace({ 'objects/stub.obj': EMPTY });
-    const { failures } = measureObjects(
-      [object('lib/legacy/radio_tower.obj', [{ pkg: 'p', file: 'objects/stub.obj' }])],
-      new Map([['p', root]]),
-    );
+    const { failures } = measureObjects([
+      object('lib/legacy/radio_tower.obj', [{ pkg: 'p', path: root, file: 'objects/stub.obj' }]),
+    ]);
     expect(failures[0]!.reason).toBe('no-geometry');
   });
 
-  it('reports a variant whose package was never scanned', () => {
-    const { failures } = measureObjects(
-      [object('lib/thing.obj', [{ pkg: 'absent', file: 'x.obj' }])],
-      new Map(),
-    );
-    expect(failures[0]!.reason).toBe('unknown-package');
+  it('takes each variant to its own package, not to a package of the same name', () => {
+    // Two roots, two folders both called `Object Library`, one virtual path exported by both. The
+    // first variant is a stub; the real object is in the second package. Resolving by name would
+    // find one of the two — and a 50% chance of reading the wrong package's file is the whole
+    // reason a variant carries its path.
+    const one = workspace({ 'objects/thing.obj': EMPTY });
+    const two = workspace({ 'objects/thing.obj': BOX });
+    const { measurements } = measureObjects([
+      object('lib/thing.obj', [
+        { pkg: 'Object Library', path: one, file: 'objects/thing.obj' },
+        { pkg: 'Object Library', path: two, file: 'objects/thing.obj' },
+      ]),
+    ]);
+    expect(measurements).toHaveLength(1);
+    expect(measurements[0]!.measuredFile).toContain(two);
+    expect(measurements[0]!.size.height).toBe(3);
   });
 });

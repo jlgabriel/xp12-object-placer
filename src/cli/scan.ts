@@ -122,10 +122,9 @@ function main(): void {
   let measured: ReturnType<typeof measureObjects> | null = null;
   if (options.geometry) {
     const subject = options.limit ? placeable.slice(0, options.limit) : placeable;
-    const packagePaths = new Map(catalog.packages.map((p) => [p.name, p.path]));
     console.log(`\nMeasuring ${subject.length.toLocaleString()} objects…`);
     const t0 = Date.now();
-    measured = measureObjects(subject, packagePaths, (done, total) => {
+    measured = measureObjects(subject, (done, total) => {
       process.stdout.write(`\r  ${done.toLocaleString()} / ${total.toLocaleString()}   `);
     });
     const seconds = (Date.now() - t0) / 1000;

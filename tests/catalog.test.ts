@@ -82,6 +82,11 @@ describe('buildCatalog', () => {
       'stock',
       'third-party',
     ]);
+    // And each one knows where it lives. The name is for showing; the path is what gets opened.
+    expect(catalog.objects[0]!.variants.map((v) => v.packagePath)).toEqual([
+      '/x-plane/Custom Scenery/stock',
+      '/x-plane/Custom Scenery/third-party',
+    ]);
   });
 });
 

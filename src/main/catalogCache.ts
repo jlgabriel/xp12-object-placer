@@ -88,8 +88,7 @@ export function scanCatalog(
   const catalog = buildCatalog(sources);
   const offered = placeableObjects(catalog);
 
-  const packagePaths = new Map(catalog.packages.map((p) => [p.name, p.path]));
-  const { measurements, failures } = measureObjects(offered, packagePaths, (done, total) =>
+  const { measurements, failures } = measureObjects(offered, (done, total) =>
     onProgress?.({ phase: 'measuring', done, total }),
   );
   const byPath = new Map(measurements.map((m) => [m.virtualPath, m]));
@@ -102,7 +101,7 @@ export function scanCatalog(
    */
   const unavailableByPath = new Map<string, string>();
   for (const failure of failures) {
-    if (failure.reason === 'missing-file' || failure.reason === 'unknown-package') {
+    if (failure.reason === 'missing-file') {
       unavailableByPath.set(failure.virtualPath, 'the library exports it, but the file is not there');
     } else if (failure.reason === 'no-geometry') {
       unavailableByPath.set(failure.virtualPath, 'an empty placeholder — it draws nothing');

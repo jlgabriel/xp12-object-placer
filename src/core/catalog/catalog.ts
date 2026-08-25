@@ -10,6 +10,15 @@ import type { LibraryExport, LibraryVisibility, ParsedLibrary } from './library.
 export interface CatalogVariant {
   /** Name of the scenery package that declared it — the folder under Custom Scenery or default. */
   readonly packageName: string;
+  /**
+   * Absolute path of that package, as the scanner found it. This is what `relativePath` resolves
+   * against.
+   *
+   * ⚠️ The name cannot stand in for it. Two package roots can each hold a folder called
+   * `Object Library`, and resolving by name would quietly read one package's files for the other's
+   * exports — no error, the wrong object, and nothing on screen to say so.
+   */
+  readonly packagePath: string;
   /** Physical path relative to that package root, verbatim. */
   readonly relativePath: string;
   readonly directive: string;
@@ -120,7 +129,7 @@ export function buildCatalog(sources: readonly LibrarySource[]): Catalog {
       byExtension[extension] = (byExtension[extension] ?? 0) + 1;
       if (extension !== '.obj') continue;
       objectExports++;
-      addVariant(byPath, entry, source.packageName);
+      addVariant(byPath, entry, source);
     }
   }
 
@@ -155,7 +164,7 @@ export function buildCatalog(sources: readonly LibrarySource[]): Catalog {
 function addVariant(
   byPath: Map<string, { visibility: LibraryVisibility; variants: CatalogVariant[]; regions: Set<string> }>,
   entry: LibraryExport,
-  packageName: string,
+  source: LibrarySource,
 ): void {
   let acc = byPath.get(entry.virtualPath);
   if (!acc) {
@@ -170,11 +179,17 @@ function addVariant(
 
   const variant: {
     packageName: string;
+    packagePath: string;
     relativePath: string;
     directive: string;
     ratio?: number;
     seasons?: readonly string[];
-  } = { packageName, relativePath: entry.relativePath, directive: entry.directive };
+  } = {
+    packageName: source.packageName,
+    packagePath: source.packagePath,
+    relativePath: entry.relativePath,
+    directive: entry.directive,
+  };
   if (entry.ratio !== undefined) variant.ratio = entry.ratio;
   if (entry.seasons !== undefined) variant.seasons = entry.seasons;
   acc.variants.push(variant);

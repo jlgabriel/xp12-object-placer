@@ -52,9 +52,7 @@ export type MeasureFailureReason =
   /** Read or parsed, but there is no geometry of any kind to measure. */
   | 'no-geometry'
   /** The file exists but is not readable as OBJ8. */
-  | 'parse-error'
-  /** The variant names a package the scan did not see. */
-  | 'unknown-package';
+  | 'parse-error';
 
 export interface MeasureFailure {
   readonly virtualPath: string;
@@ -82,14 +80,13 @@ export interface MeasureResult {
  */
 export function measureObjects(
   objects: readonly CatalogObject[],
-  packagePathsByName: ReadonlyMap<string, string>,
   onProgress?: (done: number, total: number) => void,
 ): MeasureResult {
   const measurements: ObjectMeasurement[] = [];
   const failures: MeasureFailure[] = [];
 
   objects.forEach((object, index) => {
-    const measurement = measureOne(object, packagePathsByName, failures);
+    const measurement = measureOne(object, failures);
     if (measurement) measurements.push(measurement);
     if (onProgress && index % 250 === 0) onProgress(index, objects.length);
   });
@@ -99,24 +96,12 @@ export function measureObjects(
 
 function measureOne(
   object: CatalogObject,
-  packagePathsByName: ReadonlyMap<string, string>,
   failures: MeasureFailure[],
 ): ObjectMeasurement | null {
   const attempts: MeasureFailure[] = [];
 
   for (const variant of object.variants) {
-    const packagePath = packagePathsByName.get(variant.packageName);
-    if (!packagePath) {
-      attempts.push({
-        virtualPath: object.virtualPath,
-        file: variant.relativePath,
-        reason: 'unknown-package',
-        message: `unknown package ${variant.packageName}`,
-      });
-      continue;
-    }
-
-    const file = containedJoin(packagePath, variant.relativePath);
+    const file = containedJoin(variant.packagePath, variant.relativePath);
     if (file === null) {
       attempts.push({
         virtualPath: object.virtualPath,
