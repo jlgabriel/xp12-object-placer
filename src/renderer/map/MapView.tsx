@@ -78,8 +78,8 @@ export function MapView(): React.JSX.Element {
     resize.observe(element);
 
     const layer = new ObjectLayer(map, {
-      onSelect: (id) => editorStore.getState().select(id),
-      onMove: (id, position) => editorStore.getState().moveObject(id, position),
+      onSelect: (id, mode) => editorStore.getState().select(id, mode),
+      onMove: (moves) => editorStore.getState().moveObjects(moves),
       onRotate: (id, rotation) => editorStore.getState().rotateObject(id, rotation),
     });
 
@@ -130,9 +130,7 @@ export function MapView(): React.JSX.Element {
       // A dialog is in front of the map. Its keys are its own.
       if (state.modalOpen) return;
       if (event.key === 'Escape') state.arm(null);
-      if ((event.key === 'Delete' || event.key === 'Backspace') && state.selection) {
-        state.deleteObject(state.selection);
-      }
+      if (event.key === 'Delete' || event.key === 'Backspace') state.deleteSelection();
     };
     window.addEventListener('keydown', onKey);
 

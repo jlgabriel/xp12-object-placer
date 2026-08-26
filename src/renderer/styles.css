@@ -672,6 +672,88 @@ button.danger:hover {
   margin-left: auto;
 }
 
+/* ── the selection toolbar ────────────────────────────────────────────────────────────────────
+   A second strip under the map bar, always present. It could appear only when something is
+   selected, the way `.arming` does, but selecting and deselecting is most of what this application
+   is and a bar that shoves the map up and down on every click is worse than the height it saves.
+   It wraps for the same reason the map bar does: the window may be narrow enough that these do not
+   fit on one line, and a half-cut group of buttons is not a saving. */
+.selectbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.selectbar-count {
+  font-size: 12px;
+  font-weight: 600;
+  /* Wide enough for "Nothing selected", so the buttons beside it do not shuffle sideways every time
+     the count changes width. */
+  min-width: 108px;
+}
+
+.selectbar-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.selectbar button {
+  padding: 4px 9px;
+  font-size: 12.5px;
+}
+
+.selectbar button:disabled {
+  color: var(--dim);
+  border-color: var(--hairline);
+  cursor: default;
+}
+
+.selectbar-rotation {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--dim);
+}
+
+.selectbar-rotation input {
+  width: 64px;
+  padding: 4px 6px;
+  background: var(--sink);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.selectbar-rotation input:disabled {
+  color: var(--dim);
+  border-color: var(--hairline);
+}
+
+.selectbar-unit {
+  /* The degree sign belongs to the field, not to the label, so it sits against the number and the
+     tabular figures inside keep their own column. */
+  margin-left: -2px;
+}
+
+/* Pushed to the right and dim: it is the thing to read when a button is greyed out and you want to
+   know why, not something to read on the way past. */
+.selectbar-hint {
+  margin-left: auto;
+  color: var(--dim);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
 .goto {
   display: flex;
   gap: 6px;
@@ -1165,9 +1247,4 @@ button.primary:disabled {
   color: var(--warn);
   font-size: 11.5px;
   text-align: center;
-}
-
-.inspector-actions {
-  display: flex;
-  gap: 8px;
 }

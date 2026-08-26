@@ -37,6 +37,12 @@ applyTheme(window.xop.initialTheme);
  *          so if the origin were assumed to be the centre it would sit visibly in the wrong place
  *   obj-2  a fuel truck at rotation 0, which in the simulator faces SOUTH, not north
  *   obj-3  a library path this installation does not have — the dashed placeholder
+ *
+ * And then obj-4..obj-7: four trucks in a row somebody dragged by hand. Not a decoration — it is the
+ * only fixture the arrange tools can be looked at against. The row runs at about 60°, none of them
+ * is quite on the line and the gaps are 25, 14 and 21 metres, so **Line up** and **Space evenly**
+ * both have visible work to do, separately and in either order. Select the four and watch it happen;
+ * pressing either button twice must do nothing the second time.
  */
 function seedPlacements(): void {
   const store = editorStore.getState();
@@ -52,9 +58,15 @@ function seedPlacements(): void {
   store.arm('lib/some_library_you_do_not_have/shed.obj');
   store.placeAt({ lon: -70.78515, lat: -33.37695 });
 
+  store.arm('lib/airport/Common_Elements/Vehicles/Large_Fuel_Truck.obj');
+  store.placeAt({ lon: -70.78472, lat: -33.37738 });
+  store.placeAt({ lon: -70.78448, lat: -33.37727 });
+  store.placeAt({ lon: -70.78435, lat: -33.37724 });
+  store.placeAt({ lon: -70.78414, lat: -33.37711 });
+
   store.arm(null);
   store.select('obj-1');
-  store.goTo({ lon: -70.7845, lat: -33.3766 }, 18);
+  store.goTo({ lon: -70.7845, lat: -33.3768 }, 18);
 }
 
 if (state === 'placed') seedPlacements();

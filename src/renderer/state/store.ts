@@ -14,7 +14,8 @@
 import { createStore, type Mutate, type StoreApi } from 'zustand/vanilla';
 import { subscribeWithSelector } from 'zustand/middleware';
 import type { LonLat, PlacedObject } from '../../core/model.js';
-import { destination, normalizeDegrees, wrapLon } from '../../core/geo/geo.js';
+import { destination, haversine, normalizeDegrees, wrapLon } from '../../core/geo/geo.js';
+import { lineUp, spaceEvenly } from '../../core/geo/arrange.js';
 import type { CatalogEntry } from '../../shared/api.js';
 import type { Airport } from '../../core/airports/aptDat.js';
 import { buildAirportIndex, EMPTY_AIRPORT_INDEX, type AirportIndex } from '../../core/airports/search.js';
@@ -44,6 +45,54 @@ export const AIRPORT_ZOOM = 14;
 /** Being read from the installation, ready to search, or it could not be read. */
 export type AirportsStatus = 'loading' | 'ready' | 'failed';
 
+/**
+ * What a click on an object means for the selection.
+ *
+ * `replace` is a plain click — this one, and only this one. `toggle` is a Ctrl-click (Cmd on a Mac):
+ * add it if it is not there, drop it if it is. Nothing here is called "shift-click", because the
+ * placed list uses Shift for a range and the map has no order to make a range out of; both arrive as
+ * one of these two.
+ */
+export type SelectMode = 'replace' | 'toggle';
+
+/** One leg of a group move: where this object ends up. */
+export interface ObjectMove {
+  readonly id: string;
+  readonly position: LonLat;
+}
+
+/**
+ * How far a duplicate lands from what it was copied from, in metres east.
+ *
+ * The whole group moves by the same amount — the copies keep the arrangement of the originals, which
+ * is the point of duplicating a row rather than an object. The amount is the group's own east-west
+ * extent plus the widest footprint in it plus a metre, so the copy lands *clear* of the original
+ * however big the objects are: a fixed nudge hides a hangar behind a hangar and leaves a bollard
+ * metres from its twin.
+ */
+function duplicateStep(
+  objects: readonly PlacedObject[],
+  catalogIndex: ReadonlyMap<string, CatalogEntry>,
+): number {
+  let widest = 0;
+  let minLon = Infinity;
+  let maxLon = -Infinity;
+  let latSum = 0;
+  for (const object of objects) {
+    const ground = catalogIndex.get(object.libraryPath)?.ground;
+    if (ground) widest = Math.max(widest, ground.maxX - ground.minX);
+    minLon = Math.min(minLon, object.position.lon);
+    maxLon = Math.max(maxLon, object.position.lon);
+    latSum += object.position.lat;
+  }
+  // The spread of the anchors, measured on the ground rather than in degrees of longitude — which is
+  // a different distance at every latitude and nothing at all near the poles. One representative
+  // latitude for the lot of them is plenty: this only has to be big enough, not exact.
+  const lat = latSum / objects.length;
+  const span = haversine({ lon: minLon, lat }, { lon: maxLon, lat });
+  return span + Math.max(widest, 2) + 1;
+}
+
 export interface EditorState {
   readonly objects: readonly PlacedObject[];
   /** The catalog, by virtual path. The map reads footprints out of it. */
@@ -64,7 +113,18 @@ export interface EditorState {
    * otherwise "no airports here" and "not finished looking" are the same empty dropdown.
    */
   readonly airportsStatus: AirportsStatus;
-  readonly selection: string | null;
+  /**
+   * What is selected, in no particular order.
+   *
+   * An array rather than a single id since v1.4, and the order in it is deliberately **not** the
+   * order things were clicked. Nothing reads it as history: the arrange tools take the two objects
+   * that are farthest apart, which is a fact about the map somebody can see, rather than the first
+   * and last of an invisible sequence they cannot.
+   *
+   * Empty means nothing is selected. Never contains a duplicate, and never an id that is no longer
+   * placed — `deleteSelection` and the two document loads prune it.
+   */
+  readonly selection: readonly string[];
   /** Virtual path of the object armed for placement, or null. */
   readonly placing: string | null;
   /**
@@ -110,12 +170,55 @@ export interface EditorState {
   setAirportsStatus(status: AirportsStatus): void;
   arm(virtualPath: string | null): void;
   placeAt(position: LonLat): void;
-  select(id: string | null): void;
+  /**
+   * Select one object, add one to what is already selected, or clear the selection.
+   *
+   * `null` clears whatever the mode says: a click on empty map is not a click on an object, so it
+   * means "nothing", never "toggle nothing".
+   */
+  select(id: string | null, mode?: SelectMode): void;
+  /** Replace the selection wholesale. The placed list's shift-click range comes through here. */
+  selectMany(ids: readonly string[]): void;
+  /**
+   * Move one object.
+   *
+   * Nothing in the UI reaches for this any more — a map drag is a group drag of one, so it goes
+   * through `moveObjects`. It stays because "move this object to here" is the primitive the rest is
+   * built out of, and because the tests say what it does.
+   */
   moveObject(id: string, position: LonLat): void;
+  /**
+   * Move several objects at once, as a single edit.
+   *
+   * The map's group drag. One `set` rather than a loop of `moveObject`, so the layer repaints once
+   * and the dirty flag is raised once — and so an undo stack, when there is one, sees one gesture.
+   */
+  moveObjects(moves: readonly ObjectMove[]): void;
   rotateObject(id: string, rotation: number): void;
+  /** Give every unlocked object in the selection this rotation. */
+  setSelectionRotation(rotation: number): void;
+  /** Turn every unlocked object in the selection by `delta` degrees, from wherever it is now. */
+  turnSelectionBy(delta: number): void;
+  /**
+   * Remove one object, whether or not it is selected, and drop it out of the selection if it was.
+   *
+   * Like `moveObject`, no longer on any path the user can take — Del removes the selection. Kept as
+   * the primitive, and because removing something that is *not* selected is a thing a context menu
+   * will eventually want.
+   */
   deleteObject(id: string): void;
-  /** Place another of the same object, beside this one, and select it. */
-  duplicateObject(id: string): void;
+  /** Remove everything selected, and leave nothing selected. */
+  deleteSelection(): void;
+  /** Place a copy of everything selected beside it, clear of the originals, and select the copies. */
+  duplicateSelection(): void;
+  /**
+   * Straighten the selection: every unlocked object moves onto the line through the two that are
+   * farthest apart. A row that is already straight is left alone entirely — no write, no bullet in
+   * the title bar.
+   */
+  lineUpSelection(): void;
+  /** Equalise the gaps along that same line, keeping each object's offset across it. */
+  spaceSelectionEvenly(): void;
   setCamera(camera: Camera): void;
   goTo(position: LonLat, zoom?: number): void;
   setTiles(provider: TileProviderId): void;
@@ -145,6 +248,49 @@ export function projectOf(state: EditorState): Project {
 }
 
 /**
+ * The objects, with the selection put into a tidy row — or **null** when nothing actually moved.
+ *
+ * Null rather than an equal array, because "nothing moved" has to reach the store as *no `set` at
+ * all*. `watchForEdits` marks the document dirty on any change to `objects`, so lining up a row that
+ * is already straight would otherwise put a bullet in the title bar for doing nothing at all. The
+ * reference-preserving contract in `core/geo/arrange.ts` is what makes that detectable: an untouched
+ * point comes back as the same object.
+ *
+ * A locked object still helps *define* the row — it is one of the points handed to the transform —
+ * but is never written back. So locking the two ends is how somebody pins the axis by hand.
+ * (Consequence worth knowing: locking a middle object leaves `spaceEvenly` with uneven gaps, because
+ * the even spacing was computed for all of them. That is PCT's behaviour too, and the alternative —
+ * silently re-spacing around the locked ones — is a harder thing to predict than a gap that visibly
+ * did not close.)
+ */
+function arrangedObjects(
+  state: EditorState,
+  transform: (points: readonly LonLat[]) => readonly LonLat[],
+): readonly PlacedObject[] | null {
+  const { selection, objects } = state;
+  // Two objects are a line already, and are evenly spaced by definition.
+  if (selection.length < 3) return null;
+  const wanted = new Set(selection);
+  const picked = objects.filter((object) => wanted.has(object.id));
+  if (picked.length < 3) return null;
+
+  const before = picked.map((object) => object.position);
+  const after = transform(before);
+  const moved = new Map<string, LonLat>();
+  picked.forEach((object, i) => {
+    if (object.locked || after[i] === before[i]) return;
+    moved.set(object.id, after[i]!);
+  });
+  if (moved.size === 0) return null;
+
+  // `fromAlongCross` already wraps the longitude it hands back, so nothing here has to.
+  return objects.map((object) => {
+    const position = moved.get(object.id);
+    return position ? { ...object, position } : object;
+  });
+}
+
+/**
  * The store type keeps the `subscribeWithSelector` mutation, and that is not cosmetic: without it
  * `subscribe` narrows back to the one-argument form and the map layer loses the ability to watch a
  * slice. Which would mean repainting every object on every keystroke in the search box.
@@ -164,6 +310,15 @@ function makeIdFactory(start = 1): () => string {
   return () => `obj-${next++}`;
 }
 
+/**
+ * One empty array for every empty selection.
+ *
+ * A fresh `[]` each time would be a new reference each time, and both the map layer's subscription
+ * and React's `useEditor` compare selections by reference. Clicking empty map twice would repaint
+ * every footprint on the second click for no reason.
+ */
+const NOTHING_SELECTED: readonly string[] = Object.freeze([]);
+
 export function createEditorStore(): EditorStore {
   // Reassigned when a project is loaded, so new work cannot collide with ids that came out of the
   // file. The store's own comment asked for this before there were project files to load.
@@ -175,7 +330,7 @@ export function createEditorStore(): EditorStore {
       catalogIndex: new Map(),
       airports: EMPTY_AIRPORT_INDEX,
       airportsStatus: 'loading',
-      selection: null,
+      selection: NOTHING_SELECTED,
       placing: null,
       camera: DEFAULT_CAMERA,
       cameraEpoch: 0,
@@ -226,11 +381,36 @@ export function createEditorStore(): EditorStore {
         };
         // Stays armed on purpose. Decorating means placing the same thing several times, and having
         // to re-pick the object between every tree would make that miserable. Escape disarms.
-        set({ objects: [...objects, object], selection: object.id });
+        set({ objects: [...objects, object], selection: [object.id] });
       },
 
-      select(id) {
-        set({ selection: id });
+      select(id, mode = 'replace') {
+        if (id === null) {
+          // Already empty is already right, and re-setting it would repaint every footprint.
+          if (get().selection.length > 0) set({ selection: NOTHING_SELECTED });
+          return;
+        }
+        const selection = get().selection;
+        if (mode === 'toggle') {
+          const next = selection.includes(id)
+            ? selection.filter((other) => other !== id)
+            : [...selection, id];
+          set({ selection: next.length === 0 ? NOTHING_SELECTED : next });
+          return;
+        }
+        // A plain click on the one thing already selected is not a change. Worth the check: the map
+        // fires a click at the end of every drag that never moved, and a new array each time would
+        // restyle the whole layer.
+        if (selection.length === 1 && selection[0] === id) return;
+        set({ selection: [id] });
+      },
+
+      selectMany(ids) {
+        // Deduplicated here rather than trusted from the caller: a range in the placed list and a
+        // Ctrl-click can overlap, and the invariant "no id twice" is what lets arrange treat the
+        // selection as a set of distinct points.
+        const next = [...new Set(ids)];
+        set({ selection: next.length === 0 ? NOTHING_SELECTED : next });
       },
 
       moveObject(id, position) {
@@ -243,6 +423,19 @@ export function createEditorStore(): EditorStore {
         });
       },
 
+      moveObjects(moves) {
+        if (moves.length === 0) return;
+        const where = new Map(moves.map((move) => [move.id, move.position]));
+        set({
+          objects: get().objects.map((object) => {
+            const position = where.get(object.id);
+            return position
+              ? { ...object, position: { lon: wrapLon(position.lon), lat: position.lat } }
+              : object;
+          }),
+        });
+      },
+
       rotateObject(id, rotation) {
         set({
           objects: get().objects.map((object) =>
@@ -251,34 +444,88 @@ export function createEditorStore(): EditorStore {
         });
       },
 
-      duplicateObject(id) {
-        const { objects, catalogIndex } = get();
-        const original = objects.find((object) => object.id === id);
-        if (!original) return;
+      setSelectionRotation(rotation) {
+        const { selection, objects } = get();
+        if (selection.length === 0) return;
+        const wanted = new Set(selection);
+        const turned = normalizeDegrees(rotation);
+        let changed = false;
+        const next = objects.map((object) => {
+          // `locked` reads "the map may not drag or turn this". A bulk turn is a turn.
+          if (!wanted.has(object.id) || object.locked || object.rotation === turned) return object;
+          changed = true;
+          return { ...object, rotation: turned };
+        });
+        if (changed) set({ objects: next });
+      },
 
-        // Offset by the object's own width so the copy lands *beside* it rather than inside it.
-        // A fixed nudge would hide a hangar behind a hangar and leave a bollard metres away from
-        // its twin; the footprint is already in the catalog, so use it.
-        const ground = catalogIndex.get(original.libraryPath)?.ground;
-        const width = ground ? ground.maxX - ground.minX : 0;
-        const step = Math.max(width, 2) + 1;
+      turnSelectionBy(delta) {
+        const { selection, objects } = get();
+        if (selection.length === 0 || normalizeDegrees(delta) === 0) return;
+        const wanted = new Set(selection);
+        let changed = false;
+        const next = objects.map((object) => {
+          if (!wanted.has(object.id) || object.locked) return object;
+          changed = true;
+          return { ...object, rotation: normalizeDegrees(object.rotation + delta) };
+        });
+        if (changed) set({ objects: next });
+      },
 
-        const copy: PlacedObject = {
+      duplicateSelection() {
+        const { objects, catalogIndex, selection } = get();
+        const wanted = new Set(selection);
+        // Filtered out of `objects` rather than looked up per id, so the copies are appended in the
+        // order they were placed. The selection's own order is not an order (see its comment).
+        const originals = objects.filter((object) => wanted.has(object.id));
+        if (originals.length === 0) return;
+
+        const step = duplicateStep(originals, catalogIndex);
+        const copies = originals.map((original) => ({
           ...original,
           id: nextId(),
-          // Due east of the original, in metres on the ground — not a constant added to the
-          // longitude, which would be a different distance at every latitude and nothing at all
-          // near the poles.
+          // Due east, in metres on the ground — not a constant added to the longitude, which would
+          // be a different distance at every latitude and nothing at all near the poles.
           position: destination(original.position, step, 90),
-        };
-        set({ objects: [...objects, copy], selection: copy.id });
+        }));
+        // The copies are selected, not the originals: duplicating is nearly always the first half of
+        // "and now put this one over there".
+        set({
+          objects: [...objects, ...copies],
+          selection: copies.map((copy) => copy.id),
+        });
+      },
+
+      lineUpSelection() {
+        const objects = arrangedObjects(get(), lineUp);
+        if (objects) set({ objects });
+      },
+
+      spaceSelectionEvenly() {
+        const objects = arrangedObjects(get(), spaceEvenly);
+        if (objects) set({ objects });
       },
 
       deleteObject(id) {
         const { objects, selection } = get();
+        const next = objects.filter((object) => object.id !== id);
+        if (next.length === objects.length) return;
+        const kept = selection.filter((other) => other !== id);
         set({
-          objects: objects.filter((object) => object.id !== id),
-          ...(selection === id ? { selection: null } : {}),
+          objects: next,
+          ...(kept.length === selection.length
+            ? {}
+            : { selection: kept.length === 0 ? NOTHING_SELECTED : kept }),
+        });
+      },
+
+      deleteSelection() {
+        const { objects, selection } = get();
+        if (selection.length === 0) return;
+        const wanted = new Set(selection);
+        set({
+          objects: objects.filter((object) => !wanted.has(object.id)),
+          selection: NOTHING_SELECTED,
         });
       },
 
@@ -309,7 +556,7 @@ export function createEditorStore(): EditorStore {
           camera: project.camera,
           cameraEpoch: get().cameraEpoch + 1,
           documentEpoch: get().documentEpoch + 1,
-          selection: null,
+          selection: NOTHING_SELECTED,
           placing: null,
           documentName,
           createdAt: project.createdAt,
@@ -325,7 +572,7 @@ export function createEditorStore(): EditorStore {
           camera: DEFAULT_CAMERA,
           cameraEpoch: get().cameraEpoch + 1,
           documentEpoch: get().documentEpoch + 1,
-          selection: null,
+          selection: NOTHING_SELECTED,
           placing: null,
           documentName: UNTITLED,
           createdAt: fresh.createdAt,

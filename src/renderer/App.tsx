@@ -13,6 +13,7 @@ import { CategoryTree } from './catalog/CategoryTree.js';
 import { ObjectPreview } from './catalog/ObjectPreview.js';
 import { buildCatalogTree, hasCategoryPath, matchesCategory } from './catalog/catalogTree.js';
 import type { PlacedObject } from '../core/model.js';
+import { rowAxis } from '../core/geo/arrange.js';
 import { otherTheme } from '../shared/theme.js';
 import { useTheme } from './theme.js';
 
@@ -100,10 +101,9 @@ export function App(): React.JSX.Element {
       // Duplicate acts on the selection rather than the document, but it lives here because this
       // is where Ctrl already means something and where the modal guard already is.
       if (key === 'd') {
-        const selection = editorStore.getState().selection;
-        if (selection !== null) {
+        if (editorStore.getState().selection.length > 0) {
           event.preventDefault();
-          editorStore.getState().duplicateObject(selection);
+          editorStore.getState().duplicateSelection();
         }
         return;
       }
@@ -703,6 +703,8 @@ function Stage(): React.JSX.Element {
         </div>
       </div>
 
+      <SelectionBar />
+
       {placing !== null && (
         <div className="arming">
           Click the map to place <strong>{placing}</strong> — it stays armed, so click again for
@@ -712,6 +714,198 @@ function Stage(): React.JSX.Element {
 
       <MapView />
     </section>
+  );
+}
+
+/** Two rotations are "the same" below this, in degrees. A tenth of a degree turns nothing visible. */
+const SAME_ROTATION_DEG = 0.05;
+
+/** What the quarter-turn buttons turn by. */
+const QUARTER_TURN = 90;
+
+/**
+ * The toolbar over the map: what is selected, and what can be done to all of it at once.
+ *
+ * ## Why this is not the Photoshop bar
+ *
+ * The obvious shape for this — six align buttons and two distribute buttons, left / centre / right /
+ * top / middle / bottom — is the wrong shape on a map, and PCT paid for finding that out. **Left is
+ * WEST.** "Align left" on a row of hangars snaps them all to the westernmost meridian, which is a
+ * thing nobody has ever wanted. And the row you actually want to tidy is almost never axis-aligned:
+ * an apron runs at whatever angle the apron runs at.
+ *
+ * So the two buttons work in the row's own frame instead, which is where the request really lives:
+ *
+ *   - **Line up** is align — every object moves sideways onto the line through the two farthest
+ *     apart, so the two ends stay exactly where they are and the strays come to them.
+ *   - **Space evenly** is distribute — every gap along that line becomes the same length.
+ *
+ * They are orthogonal: run both for a clean row, run one and the other property is untouched. The
+ * arithmetic is `core/geo/arrange.ts`.
+ *
+ * ## Why the bar is always here
+ *
+ * It could appear only when something is selected, the way the arming banner underneath it does. It
+ * does not, because selecting and deselecting is most of what this application is, and a strip that
+ * pushes the map up and down forty pixels every time you click is worse than the forty pixels. With
+ * nothing selected it says what to do about that.
+ */
+function SelectionBar(): React.JSX.Element {
+  const objects = useEditor((state) => state.objects);
+  const selection = useEditor((state) => state.selection);
+
+  // Both of these are stable store references, so the derived work happens here rather than in a
+  // selector: a selector that built a new array every call would re-run this on every map pan.
+  const picked = useMemo(() => {
+    const wanted = new Set(selection);
+    return objects.filter((object) => wanted.has(object.id));
+  }, [objects, selection]);
+  const axis = useMemo(() => rowAxis(picked.map((object) => object.position)), [picked]);
+
+  const store = editorStore.getState;
+  const none = picked.length === 0;
+  const canArrange = picked.length >= 3 && axis !== null;
+
+  // Blank rather than a number when they disagree. A field claiming to be "the" rotation of seven
+  // objects turned seven ways would be the whole bug.
+  const first = picked[0];
+  const common =
+    first && picked.every((object) => Math.abs(object.rotation - first.rotation) < SAME_ROTATION_DEG)
+      ? first.rotation
+      : undefined;
+
+  const hint = none
+    ? 'Click an object to select it. Ctrl-click to add another.'
+    : canArrange
+      ? `Row ${axis.lengthM.toFixed(1)} m at ${axis.bearing.toFixed(1)}°`
+      : picked.length < 3
+        ? `Ctrl-click ${picked.length === 1 ? 'two more objects' : 'one more object'} to tidy a row.`
+        : 'They are all in the same spot — there is no row to line up.';
+
+  return (
+    <div className="selectbar">
+      <span className="selectbar-count">
+        {none ? 'Nothing selected' : `${picked.length} selected`}
+      </span>
+
+      <div className="selectbar-group">
+        <button
+          disabled={!canArrange}
+          title="Move every selected object sideways onto the straight line through the two farthest apart. Those two do not move."
+          onClick={() => store().lineUpSelection()}
+        >
+          Line up
+        </button>
+        <button
+          disabled={!canArrange}
+          title="Give every gap along that line the same length, keeping each object's offset across it."
+          onClick={() => store().spaceSelectionEvenly()}
+        >
+          Space evenly
+        </button>
+      </div>
+
+      <div className="selectbar-group">
+        <RotationField
+          disabled={none}
+          common={common}
+          onCommit={(degrees) => store().setSelectionRotation(degrees)}
+        />
+        <button
+          disabled={none}
+          title={`Turn everything selected ${QUARTER_TURN}° anticlockwise from where it is now`}
+          onClick={() => store().turnSelectionBy(-QUARTER_TURN)}
+        >
+          ↺
+        </button>
+        <button
+          disabled={none}
+          title={`Turn everything selected ${QUARTER_TURN}° clockwise from where it is now`}
+          onClick={() => store().turnSelectionBy(QUARTER_TURN)}
+        >
+          ↻
+        </button>
+      </div>
+
+      <div className="selectbar-group">
+        <button
+          disabled={none}
+          title="Place a copy of everything selected beside it, and select the copies (Ctrl+D)"
+          onClick={() => store().duplicateSelection()}
+        >
+          Duplicate
+        </button>
+        <button
+          className="danger"
+          disabled={none}
+          title="Remove everything selected (Del)"
+          onClick={() => store().deleteSelection()}
+        >
+          Remove
+        </button>
+      </div>
+
+      <span className="selectbar-hint">{hint}</span>
+    </div>
+  );
+}
+
+/**
+ * One rotation for the whole selection.
+ *
+ * Typed rather than dragged, which is the half the cyan grip on the map cannot do: a grip turns one
+ * object by eye, this gives twenty of them the same number. Blank with a "mixed" placeholder when
+ * they currently disagree — and typing into it then is how they stop disagreeing.
+ *
+ * The draft is held here and committed on Enter or blur, never on every keystroke: "9" on the way to
+ * "90" would otherwise turn the whole selection to 9° and back, and each of those is an edit.
+ */
+function RotationField({
+  disabled,
+  common,
+  onCommit,
+}: {
+  disabled: boolean;
+  common: number | undefined;
+  onCommit: (degrees: number) => void;
+}): React.JSX.Element {
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const commit = (): void => {
+    if (draft !== null) {
+      const degrees = Number.parseFloat(draft);
+      if (Number.isFinite(degrees)) onCommit(degrees);
+    }
+    setDraft(null);
+  };
+
+  return (
+    <label className="selectbar-rotation">
+      <span
+        title={
+          'The fourth argument of the DSF OBJECT command, in degrees clockwise. It is not a compass ' +
+          'heading: rotation 0 is how the artist modelled the object, and the stock fuel truck faces ' +
+          'south at 0.'
+        }
+      >
+        Rotation
+      </span>
+      <input
+        type="text"
+        inputMode="decimal"
+        disabled={disabled}
+        aria-label="Rotation for the whole selection, in degrees"
+        value={draft ?? (common === undefined ? '' : common.toFixed(1))}
+        placeholder={disabled ? '' : common === undefined ? 'mixed' : ''}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') event.currentTarget.blur();
+          else if (event.key === 'Escape') setDraft(null);
+        }}
+      />
+      <span className="selectbar-unit">°</span>
+    </label>
   );
 }
 
@@ -762,7 +956,47 @@ function GoTo(): React.JSX.Element {
 function PlacementPanel({ onExport }: { onExport: () => void }): React.JSX.Element {
   const objects = useEditor((state) => state.objects);
   const selection = useEditor((state) => state.selection);
-  const selected = objects.find((object) => object.id === selection) ?? null;
+  const chosen = useMemo(() => new Set(selection), [selection]);
+  // The inspector is about *an* object — its coordinate, its tile, its library path. With several
+  // selected there is no single answer to any of that, and the toolbar over the map is what speaks
+  // for a group.
+  const only =
+    selection.length === 1 ? (objects.find((object) => object.id === selection[0]) ?? null) : null;
+
+  /**
+   * Where a Shift-click measures its range from: the last row picked without Shift.
+   *
+   * A ref rather than state — it changes on every click and nothing renders differently for it, and
+   * the list is one of the two places in the application where selection order means anything at
+   * all. (The other is nowhere: see the store's note on `selection`.)
+   */
+  const rangeAnchor = useRef<number | null>(null);
+
+  const pick = (index: number, event: React.MouseEvent): void => {
+    const object = objects[index];
+    if (!object) return;
+    const store = editorStore.getState();
+
+    const anchor = rangeAnchor.current;
+    if (event.shiftKey && anchor !== null && anchor < objects.length) {
+      const from = Math.min(anchor, index);
+      const to = Math.max(anchor, index);
+      store.selectMany(objects.slice(from, to + 1).map((one) => one.id));
+      return; // the anchor stays put, so widening and narrowing a range both work
+    }
+
+    if (event.ctrlKey || event.metaKey) {
+      store.select(object.id, 'toggle');
+      rangeAnchor.current = index;
+      return;
+    }
+
+    store.select(object.id);
+    rangeAnchor.current = index;
+    // Only a plain click flies the map. Adding a fourth hangar to a row you are building must not
+    // yank the view off the three you are looking at.
+    store.goTo(object.position);
+  };
 
   return (
     <section className="panel placement-panel">
@@ -792,17 +1026,13 @@ function PlacementPanel({ onExport }: { onExport: () => void }): React.JSX.Eleme
         <p className="empty">Nothing placed yet. Pick an object on the left, then click the map.</p>
       ) : (
         <ul className="placed">
-          {objects.map((object) => (
-            <li key={object.id} className={object.id === selection ? 'on' : ''}>
+          {objects.map((object, index) => (
+            <li key={object.id} className={chosen.has(object.id) ? 'on' : ''}>
               <button
                 // The row shows a short label; the title carries the identity, which is the string
-                // that actually goes into the DSF.
-                title={object.libraryPath}
-                onClick={() => {
-                  const store = editorStore.getState();
-                  store.select(object.id);
-                  store.goTo(object.position);
-                }}
+                // that actually goes into the DSF, and then how to pick more than one.
+                title={`${object.libraryPath}\n\nCtrl-click to add to the selection, Shift-click for a range`}
+                onClick={(event) => pick(index, event)}
               >
                 <span className="name">{object.label ?? object.libraryPath}</span>
                 <span className="where">
@@ -814,7 +1044,7 @@ function PlacementPanel({ onExport }: { onExport: () => void }): React.JSX.Eleme
         </ul>
       )}
 
-      {selected && <Inspector object={selected} />}
+      {only && <Inspector object={only} />}
     </section>
   );
 }
@@ -839,19 +1069,12 @@ function Inspector({ object }: { object: PlacedObject }): React.JSX.Element {
       {/* The one thing about this format that catches everybody, said where it is being used. */}
       <p className="note">
         Rotation 0 is how the artist modelled the object, not north — the stock fuel truck faces
-        south at 0. Turn it by eye against the imagery with the cyan grip.
+        south at 0. Turn it by eye against the imagery with the cyan grip, or type a number into the
+        toolbar over the map.
       </p>
-      <div className="inspector-actions">
-        <button
-          onClick={() => editorStore.getState().duplicateObject(object.id)}
-          title="Place another one beside this (Ctrl+D)"
-        >
-          Duplicate
-        </button>
-        <button className="danger" onClick={() => editorStore.getState().deleteObject(object.id)}>
-          Remove
-        </button>
-      </div>
+      {/* No Duplicate or Remove down here any more. They moved to the toolbar over the map, which
+          acts on the selection — and while this panel is showing, the selection is this object. Two
+          buttons a hand's width apart doing exactly the same thing is a question, not a shortcut. */}
     </div>
   );
 }

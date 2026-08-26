@@ -606,3 +606,53 @@ this codebase say otherwise. They are not being edited yet: the case XOP marks `
 *different* route through the loader — the path resolves and the file behind it was never shipped —
 and H9 did not measure that one. It gets its own probe before anything is rewritten on the strength
 of this one.
+
+---
+
+## D21 — Arrange works in the row's frame, not in the compass's (2026-08-26)
+
+**XOP has no "align left", no "align top" and no "distribute horizontally", and it will not grow
+them.** The two arrange buttons are **Line up** and **Space evenly**, and both work along the line
+the selected objects already almost form.
+
+The request that started this was the ordinary one — *"como en Photoshop o PowerPoint, unos botones
+de alinear y distribuir"* — and the answer is the shape PCT already paid for.
+
+**Why:** because **left is west**. The 2D-editor vocabulary assumes a canvas whose axes mean
+something to the drawing on it, and a map's do not. "Align left" on seven parked aircraft snaps them
+all to the westernmost meridian, which is not a thing anybody has ever wanted done to their apron.
+And the row a person actually wants tidied is hardly ever axis-aligned: a line of hangars runs at
+whatever angle the apron runs at — the row that prompted this in PCT sits at 134.5°.
+
+So the operations are expressed in the row's own frame instead, ALONG the line and ACROSS it:
+
+- **Line up** zeroes each object's offset *across* the line through the two that are farthest apart.
+  That is "align", and it is better than align: the two ends do not move, so the row stays where the
+  user put it and only the strays come to it.
+- **Space evenly** equalises the gaps *along* that line, keeping each object's offset across it.
+  That is "distribute".
+
+The two are orthogonal, so running both gives a clean row and running one leaves the other property
+alone. `src/core/geo/arrange.ts` is a copy of PCT's file (D4, `docs/LINEAGE.md`).
+
+**The axis is the farthest-apart pair, not the first and last selected.** Selection order is
+invisible state a user cannot see or verify; "the two ends stay put and everything else moves
+between them" is a sentence they can predict before they click. It also makes the result independent
+of the order things were picked in, which is why `selection` in the store is documented as carrying
+no order at all.
+
+**Consequences.**
+
+- Selection became a list, and the map grew Ctrl-click and a group drag to fill it. Everything the
+  toolbar does — rotate, duplicate, remove — acts on that list.
+- There is **no "Match row" button**, which PCT has: it faces every selected object along the row's
+  bearing. That button asserts that a compass bearing *is* the object's facing, which PCT calibrated
+  in-sim for its own asset type. X-Plane's `OBJECT` rotation is not a heading — rotation 0 is however
+  the artist modelled the thing, and the stock fuel truck faces south at 0 (`probes/H0b`, D3). XOP
+  offers a rotation *field* instead, which writes the DSF's fourth argument and claims nothing.
+- An arrange that moves nothing writes nothing: `core/geo/arrange.ts` returns untouched points at the
+  same reference, and the store makes no `set` call when none of them changed. Otherwise lining up a
+  row that is already straight would put the unsaved bullet in the title bar for doing nothing.
+- A **locked** object still helps define the row and is never moved by it. Locking the two ends is
+  how somebody pins the axis by hand — the flag has no UI yet, but the project format carries it and
+  a toolbar button must not quietly override a file that sets it.

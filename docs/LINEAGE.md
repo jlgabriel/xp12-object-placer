@@ -29,8 +29,23 @@ Under D4 both projects are GPL-3.0, so this is a copy, with attribution in the f
 
 - `src/core/geo/geo.ts` — haversine, initial bearing, destination point. **Copied**, ~80 lines. It
   knows about the Earth, not about Aerofly, which is what made it portable.
-- `arrange.ts` — row axis, along/cross projection, line-up and even-spacing. ~135 lines. **Not taken
-  yet**; it will be, when XOP grows the arrange tools.
+- `src/core/geo/arrange.ts` — row axis, along/cross projection, line-up and even-spacing. ~135 lines.
+  **Copied**, and this line used to say "not taken yet; it will be, when XOP grows the arrange
+  tools". XOP grew them. It travels for the same reason `geo.ts` did — it knows about the Earth and
+  about a row, and nothing about either simulator — and the arithmetic came across line for line.
+  Two things changed: `EPS_M` keeps its value but loses its reason (PCT's was Aerofly's seven
+  decimals; XOP writes nine and a finer binary grid, so five millimetres is now a judgement about
+  what is visible rather than about what fits in the file), and the doc comment says "left is WEST"
+  in XOP's own terms. `tests/arrange.test.ts` came across too, including the real hand-dragged row at
+  KMZJ — deliberately, because asserting PCT's own numbers against the copy is what proves the port
+  did not drift.
+
+  What did **not** come across is the button next to them. PCT offers **Match row**: face every
+  selected object along the row's bearing. It cannot exist here. That button asserts that a compass
+  bearing *is* the object's facing, which PCT calibrated in-sim for its xrefs; X-Plane's `OBJECT`
+  rotation is not a heading at all — rotation 0 is however the artist modelled the thing, and the
+  stock fuel truck faces south at 0 (`probes/H0b`). XOP's toolbar has a rotation *field* instead,
+  which sets the DSF's fourth argument and claims nothing about which way anything is pointing.
 - `src/renderer/catalog/previewPosition.ts` — where the hover preview lands beside the row it
   belongs to. **Ported**, ~30 lines. It is about a viewport and a box; the one change is that XOP
   anchors on the whole row rather than on the thumbnail, so the popup opens clear of the panel. The
@@ -51,7 +66,7 @@ and a copy edited that heavily is a worse starting point than a rewrite — the 
 be describing the other simulator. XOP's `src/core/geo/footprint.ts` is written from the OBJ8 axes
 directly, and carries its own probe evidence.
 
-So what actually crossed is **~120 lines** out of a 20,000-line application, and saying so plainly
+So what actually crossed is **~255 lines** out of a 20,000-line application, and saying so plainly
 is the point: what transfers between the two projects is judgement, not source.
 
 ## Taken: shapes worth copying, reimplemented

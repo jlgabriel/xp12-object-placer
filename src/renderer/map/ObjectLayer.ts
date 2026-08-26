@@ -19,8 +19,18 @@
  * The rotate grip hangs off the model's -Z side, so **the grip's compass bearing is the rotation
  * value**: dragging it to a bearing sets that number, and that number is what goes into the DSF.
  * It is drawn as a control — its own colour, a dashed arm, only while selected — so it cannot be
- * mistaken for a claim about which way the object faces.
+ * mistaken for a claim about which way the object faces. It appears only when **one** object is
+ * selected: a handle on every member of a group would be a thicket, and turning several objects
+ * about their own origins at once is what the toolbar's rotation field is for.
  *
+ * ## Several at once
+ *
+ * Ctrl-click (Cmd on a Mac) or Shift-click adds an object to the selection instead of replacing it,
+ * and dragging any member of a selection carries the whole of it — one shared offset, so the group
+ * arrives with its shape intact and reaches the store as a single edit. What that selection is *for*
+ * is the arrange tools: three or more objects have a row, and a row can be straightened and spaced.
+ *
+
  * ## Interaction rules, all of them paid for in PCT
  *
  *   - The body takes `mousedown`, not just `click`. Without it Leaflet's pan wins the gesture and
@@ -42,12 +52,20 @@ import type { GroundBox, LonLat, PlacedObject } from '../../core/model.js';
 import { footprintCorners, gripPoint } from '../../core/geo/footprint.js';
 import { initialBearing, snapAngle, wrapLon } from '../../core/geo/geo.js';
 import type { CatalogEntry } from '../../shared/api.js';
+import type { ObjectMove, SelectMode } from '../state/store.js';
 import { diffEntry, drawnBox, type Unknown } from './syncDiff.js';
 
 export interface ObjectLayerCallbacks {
-  onSelect(id: string): void;
-  /** Fired once, on release. */
-  onMove(id: string, position: LonLat): void;
+  /** `mode` is what the modifier keys made of the click — see `SelectMode`. */
+  onSelect(id: string, mode: SelectMode): void;
+  /**
+   * Fired once, on release, with every object the gesture moved.
+   *
+   * An array even for one object, because dragging any member of a multi-selection drags all of
+   * them: the caller commits the lot as a single edit rather than as N edits that happen to be
+   * adjacent.
+   */
+  onMove(moves: readonly ObjectMove[]): void;
   /** Fired once, on release. */
   onRotate(id: string, rotation: number): void;
 }
@@ -80,21 +98,32 @@ interface Entry {
   grip?: L.CircleMarker;
 }
 
+/** One object being carried by a move gesture, and where it was when the gesture started. */
+interface MoveLeg {
+  readonly id: string;
+  readonly startAnchor: LonLat;
+}
+
 /**
  * One gesture at a time.
  *
- * A move remembers the latest previewed anchor so a release outside the map — where there is no map
+ * A move remembers the latest previewed offset so a release outside the map — where there is no map
  * coordinate to read — still commits the right spot. A rotate remembers the latest bearing for the
  * same reason, and the starting rotation so a release that lands back where it started commits
  * nothing.
+ *
+ * A move carries a **list**: grabbing one of several selected objects drags the whole selection, and
+ * every one of them has to be previewed and committed. The offset is shared — this is a translation,
+ * so the group keeps its shape and nothing has to be re-derived per object.
  */
 type Drag =
   | {
       mode: 'move';
-      id: string;
-      startAnchor: LonLat;
+      legs: readonly MoveLeg[];
       startMouse: L.LatLng;
-      anchor: LonLat;
+      /** Latest previewed offset from where the gesture began, in degrees. */
+      dLon: number;
+      dLat: number;
       moved: boolean;
     }
   | {
@@ -110,6 +139,13 @@ export class ObjectLayer {
   private readonly group: L.LayerGroup;
   private readonly entries = new Map<string, Entry>();
   private catalogIndex: ReadonlyMap<string, CatalogEntry> = new Map();
+  /**
+   * What is selected, as a set, kept from the last `sync`.
+   *
+   * The layer needs this outside a paint: `mousedown` has to know, before any store round trip,
+   * whether the object under the cursor is part of a group that should move with it.
+   */
+  private chosen: ReadonlySet<string> = new Set();
   private drag: Drag | null = null;
 
   constructor(
@@ -134,15 +170,17 @@ export class ObjectLayer {
   sync(
     objects: readonly PlacedObject[],
     catalogIndex: ReadonlyMap<string, CatalogEntry>,
-    selection: string | null,
+    selection: readonly string[],
   ): void {
     const catalogChanged = this.catalogIndex !== catalogIndex;
     this.catalogIndex = catalogIndex;
+    const chosen = new Set(selection);
+    this.chosen = chosen;
 
     const seen = new Set<string>();
     for (const object of objects) {
       seen.add(object.id);
-      const selected = object.id === selection;
+      const selected = chosen.has(object.id);
       const previous = this.entries.get(object.id);
       switch (diffEntry(previous, object, selected, catalogChanged)) {
         case 'skip':
@@ -155,6 +193,14 @@ export class ObjectLayer {
           this.add(object, selected);
           break;
       }
+      // Outside the switch, and deliberately. The grip belongs to a selection of **one** — a handle
+      // on every member of a group would be a thicket of them, and turning several objects about
+      // their own origins at once is what the toolbar's rotation field is for. That makes grip
+      // visibility depend on the size of the selection, which `diffEntry` cannot see: going from one
+      // selected object to two leaves the first one's own flags untouched, so it reports `skip` while
+      // its grip still has to go. `syncGrip` is idempotent, so asking every time costs nothing.
+      const entry = this.entries.get(object.id);
+      if (entry) this.syncGrip(entry, selected && chosen.size === 1);
     }
     for (const id of [...this.entries.keys()]) if (!seen.has(id)) this.remove(id);
   }
@@ -179,7 +225,10 @@ export class ObjectLayer {
       interactive: false,
     });
 
-    poly.on('click', () => this.cb.onSelect(object.id));
+    // Ctrl (Cmd on a Mac) adds to the selection instead of replacing it, and Shift does the same —
+    // the map has no order to make a range out of, so the key people reach for first should not do
+    // nothing. Both land on the store as `toggle`.
+    poly.on('click', (event) => this.cb.onSelect(object.id, ObjectLayer.modeOf(event)));
     poly.on('mousedown', (event) => this.onGrabBody(object.id, event));
 
     this.group.addLayer(poly);
@@ -187,14 +236,12 @@ export class ObjectLayer {
 
     const entry: Entry = { object, box, unknown, selected, poly, anchor };
     this.entries.set(object.id, entry);
-    this.syncGrip(entry, selected);
   }
 
   private restyle(entry: Entry, selected: boolean): void {
     const color = selected ? COLOR_SELECTED : entry.unknown ? COLOR_UNKNOWN : COLOR;
     entry.poly.setStyle({ color, weight: selected ? 3 : 2 });
     entry.anchor.setStyle({ color });
-    this.syncGrip(entry, selected);
     entry.selected = selected;
   }
 
@@ -248,19 +295,36 @@ export class ObjectLayer {
     return event.originalEvent.button === 0;
   }
 
+  private static modeOf(event: L.LeafletMouseEvent): SelectMode {
+    const native = event.originalEvent;
+    return native.ctrlKey || native.metaKey || native.shiftKey ? 'toggle' : 'replace';
+  }
+
   private onGrabBody = (id: string, event: L.LeafletMouseEvent): void => {
     if (!ObjectLayer.isPrimary(event)) return;
     const entry = this.entries.get(id);
     if (!entry || entry.object.locked) return;
+
+    // Grabbing something that is already part of the selection drags the whole selection; grabbing
+    // anything else drags only it, and the click at the end of the gesture is what will select it.
+    // A modifier is on its way to changing the selection rather than to moving anything, so it takes
+    // the group case off the table — otherwise Ctrl-clicking a member of a row to drop it would
+    // shove the entire row a pixel first.
+    const group =
+      this.chosen.has(id) && this.chosen.size > 1 && ObjectLayer.modeOf(event) === 'replace';
+    const ids = group ? [...this.chosen] : [id];
+    const legs = ids.flatMap((other) => {
+      const member = this.entries.get(other);
+      // A locked object in the group stays put while the rest of it moves. That is the same rule as
+      // arrange: locked means the map does not move this, not that the gesture is refused.
+      return member && !member.object.locked
+        ? [{ id: other, startAnchor: member.object.position }]
+        : [];
+    });
+    if (legs.length === 0) return;
+
     this.map.dragging.disable();
-    this.drag = {
-      mode: 'move',
-      id,
-      startAnchor: entry.object.position,
-      startMouse: event.latlng,
-      anchor: entry.object.position,
-      moved: false,
-    };
+    this.drag = { mode: 'move', legs, startMouse: event.latlng, dLon: 0, dLat: 0, moved: false };
   };
 
   private onGrabGrip = (id: string, event: L.LeafletMouseEvent): void => {
@@ -299,25 +363,34 @@ export class ObjectLayer {
     }
   }
 
+  /** Where one leg of a move gesture currently sits, given the offset dragged so far. */
+  private static legAt(leg: MoveLeg, dLon: number, dLat: number): LonLat {
+    return { lon: leg.startAnchor.lon + dLon, lat: leg.startAnchor.lat + dLat };
+  }
+
   private onMouseMove = (event: L.LeafletMouseEvent): void => {
     const drag = this.drag;
     if (!drag) return;
-    const entry = this.entries.get(drag.id);
-    if (!entry) return;
     drag.moved = true;
 
     if (drag.mode === 'move') {
       // Track the cursor's delta from where it grabbed, not the cursor itself: grabbing a hangar by
-      // its corner should not teleport its origin under the pointer.
-      const anchor: LonLat = {
-        lon: drag.startAnchor.lon + (event.latlng.lng - drag.startMouse.lng),
-        lat: drag.startAnchor.lat + (event.latlng.lat - drag.startMouse.lat),
-      };
-      drag.anchor = anchor;
-      this.layOut(entry, anchor, entry.object.rotation);
+      // its corner should not teleport its origin under the pointer. One offset for every leg, so a
+      // group keeps its shape exactly — the alternative, re-deriving each anchor from the cursor,
+      // would let rounding pull the row apart over a long drag.
+      drag.dLon = event.latlng.lng - drag.startMouse.lng;
+      drag.dLat = event.latlng.lat - drag.startMouse.lat;
+      for (const leg of drag.legs) {
+        const entry = this.entries.get(leg.id);
+        if (entry) {
+          this.layOut(entry, ObjectLayer.legAt(leg, drag.dLon, drag.dLat), entry.object.rotation);
+        }
+      }
       return;
     }
 
+    const entry = this.entries.get(drag.id);
+    if (!entry) return;
     // The grip's bearing from the anchor IS the rotation — that is what gripPoint is built for, so
     // there is no conversion here and no sign to get wrong.
     let rotation = initialBearing(drag.anchor, { lon: event.latlng.lng, lat: event.latlng.lat });
@@ -342,7 +415,12 @@ export class ObjectLayer {
     if (drag.mode === 'move') {
       // Wrap only here. During the preview a drag across the antimeridian stays visually continuous;
       // what reaches the store is normalised.
-      this.cb.onMove(drag.id, { lon: wrapLon(drag.anchor.lon), lat: drag.anchor.lat });
+      this.cb.onMove(
+        drag.legs.map((leg) => {
+          const at = ObjectLayer.legAt(leg, drag.dLon, drag.dLat);
+          return { id: leg.id, position: { lon: wrapLon(at.lon), lat: at.lat } };
+        }),
+      );
     } else if (drag.rotation !== drag.startRotation) {
       this.cb.onRotate(drag.id, drag.rotation);
     }

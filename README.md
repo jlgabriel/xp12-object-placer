@@ -60,6 +60,20 @@ actually has. Pick one, click the map, and it lands there: drawn as its real foo
 its rotation, with a dot on the point the coordinate refers to. Drag the box to move it, drag the
 cyan grip to turn it against the satellite imagery.
 
+**Several at once.** Ctrl-click adds an object to the selection — on the map or in the list, where
+Shift also takes a range — and dragging any of them carries the whole group. The toolbar over the
+map then acts on all of it: give them one **rotation**, turn them a quarter turn either way,
+**duplicate** the lot beside itself, or remove it.
+
+And with three or more, **tidy the row**. There is no *align left* and no *distribute horizontally*
+here, because left is **west**, and a row of hangars runs at whatever angle the apron runs at — not
+at 90°. So the two buttons work along the line the objects already almost form: **Line up** moves
+each of them sideways onto the line through the two that are farthest apart, so the ends stay put
+and only the strays come to them, and **Space evenly** makes every gap along that line the same
+length. They are independent — run both for a clean row, run one and the other is left alone. The
+bar says how long the row is and which way it runs. The reasoning is [D21](docs/DECISIONS.md), and
+the arithmetic is [PCT's](docs/LINEAGE.md), copied.
+
 **Libraries you keep somewhere else** — another drive, a folder outside X-Plane — are read too, as
 long as they are linked into `Custom Scenery` with a junction or a symlink. That is not a limit XOP
 imposes: X-Plane reads packs from `Custom Scenery` and `Resources/default scenery` and nowhere else,
